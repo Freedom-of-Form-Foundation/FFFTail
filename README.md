@@ -2,7 +2,7 @@
 Github Repository containing relevant work files for the Freedom of Form Foundation's Enhanced Tail project!
 
 ## What's inside:
-#B6 Hardware Code
+# B6 Hardware Code
 - Current Stable release of the code
 - capable of achieving a fairly consistent sample rate in the range of 1024Hz
 
