@@ -5,13 +5,13 @@ Github Repository containing relevant work files for the Freedom of Form Foundat
 ### B6.1 Hardware Code
 - Current Stable release of the code
 - Capable of achieving a fairly consistent sample rate in the range of 1024Hz
-- structurally very similar to the b6 code
-- fixed the overflow bug in the esp32's output of time
+- Structurally very similar to the b6 code
+- Fixed the overflow bug in the esp32's output of time
 
 ### B7 Hardware Code
-- structurally very different from the b7 code
-- attempts to make things more efficient by simplifying them
-- unfished/Nonfunctional, more of a preview into future revisions
+- Structurally very different from the b6 lineage of code
+- Attempts to make things more efficient by simplifying them
+- Unfished/Nonfunctional, more of a preview into future revisions
 
 ### Grapher.py
 - Designed to read the serial data from the esp32 (or similar hardware) and live graph it in a human readable format
