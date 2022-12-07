@@ -8,7 +8,7 @@ Github Repository containing relevant work files for the Freedom of Form Foundat
 - structurally very similar to the b6 code
 - fixed the overflow bug in the esp32's output of time
 
-### B7 Code
+### B7 Hardware Code
 - structurally very different from the b7 code
 - attempts to make things more efficient by simplifying them
 - unfished/Nonfunctional, more of a preview into future revisions
