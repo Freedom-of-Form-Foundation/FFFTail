@@ -14,14 +14,14 @@
 BluetoothSerial SerialBT;
 
 //ESP32Time rtc;
-long unsigned int myMicros = 0;
+uint32_t myMicros = 0;
 const int sample_rate = 488; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
 
 //------------
 //buffer stuff
 //------------
 //"the Buffer" - 3 array storing the time, raw and env which we access when we want to print
-int bufferTime[500];
+uint32_t bufferTime[500];
 int bufferRaw[500];
 int bufferEnv[500];
 //inexes to keep track of where the serial and sensor are in the buffer
@@ -39,7 +39,7 @@ void setup() {
   
   delay(100);
   
-  myMicros = micros();
+  myMicros = micros(); //18,446,744,073,709,551,615 //a little less than overflow
   Serial.print(myMicros); Serial.println(",Raw value (0--4095),Env value (0--4095)");
   SerialBT.print(myMicros); SerialBT.println(",Raw value (0--4095),Env value (0--4095)");
 }
@@ -64,9 +64,9 @@ void loop() {
   //if(serial_id == 499){sensor_id = 0;}
   //attempt at sample rate control
   if(sensor_id <= 499){sensor_manager();} //collect data from the sensor
-  static unsigned int long prev_out; //to keep track of the last time we printed data
-  if(micros() - prev_out >= sample_rate){
-    prev_out += (unsigned) micros(); //update when we'll wanna print next
+  static uint32_t last_check; //to keep track of the last time we printed data
+  if(micros() - last_check >= sample_rate){
+    last_check = micros(); //update when we'll wanna print next
     serial_manager(); //print the data
   }
 }
@@ -76,7 +76,7 @@ void sensor_manager(){
   //record the data
   int nraw = analogRead(MYOWARE_RAW);
   int nenv = analogRead(MYOWARE_ENV);
-  myMicros = (unsigned) micros(); //record the time
+  myMicros = micros(); //record the time
   int nid = sensor_id + 1; //iterate the index for the sensor
   if (nid != serial_id) {
     bufferTime[sensor_id] = myMicros;
