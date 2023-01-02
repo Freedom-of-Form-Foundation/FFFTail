@@ -59,6 +59,7 @@ def praseusb(buff_data):
     times = [] #times when things happen
     raw = [] #raw values of the emg
     env = [] 
+
     #instead of reading from a file this should either read straight from serial (less ideal?)
     #or read from a buffer array where all the data is stored in order to make sure we read fast enoguh
     for data in buff_data:
