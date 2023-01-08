@@ -1,5 +1,6 @@
 // Myoreader.ino: A sketch to log data from a MyoWare. Written by Bleddyn for the FFF, Nov. 9, 2021.
-// Edits for consistency and sample rate controll made by Mecknavorz for the FFF, March 10, 2022.
+// Edits for consistency and sample rate controll made by Mecknavorz for the FFF, March 10, 2022-
+// b7 able to achive consistent 1024 sample rate with minimal deviance
 
 #include "BluetoothSerial.h"
 //#include "ESP32Time.h"
@@ -14,21 +15,11 @@
 BluetoothSerial SerialBT;
 
 //ESP32Time rtc;
-long unsigned int myMicros = 0;
-const int sample_rate = 488; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
-
-//------------
-//buffer stuff
-//------------
-//"the Buffer" - 2d array storing the time, raw and env which we access when we want to print
-//sbuffer[n][m]
-//n = Our input data types: 0 = Time; 1 = Raw; 2= Env
-//m = buffer length
-int sbuffer[3][500];
-int sensor_id = 0; //index for where the sensor is
+uint32_t myMicros = 0;
+const int sample_rate = 966; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(230400);
   SerialBT.begin("Myoreader"); //Bluetooth device name
   Serial.println("The device started, now you can pair it with bluetooth!");
 
@@ -42,45 +33,15 @@ void setup() {
   SerialBT.print(myMicros); SerialBT.println(",Raw value (0--4095),Env value (0--4095)");
 }
 
-uint rawVal = 0;
-uint envVal = 0;
-
-//-----------------------------------------------------
-//the functions and code that does stuff (end of setup)
-//-----------------------------------------------------
-int nprint = 0;
+int nraw = 0;
+int nenv = 0;
 void loop() {
-  //make sure we stay within the bound of our buffer
-  //when we reach full buffer, print
-  if(sensor_id == 500){
-    sensor_id = 0;
-    serial_manager(); //prints the buffer
+  static uint32_t last_check; //to keep track of the last time we printed data
+  if(micros() - last_check >= sample_rate){
+    last_check = micros(); //update when we'll wanna print next
+    nraw = analogRead(MYOWARE_RAW);
+    nenv = analogRead(MYOWARE_ENV);
+    Serial.print(String(last_check) + "," + String(nraw) + "," + String(nenv) + "\n");
+    SerialBT.print(String(last_check) + "," + String(nraw) + "," + String(nenv) + "\n");
   }
-  //collect data from the sensor
-  if(sensor_id <= 499){
-    sensor_manager();
-    delayMicroseconds(sample_rate); //this delay of microseconds will give us a sample rate of 2048Hz ideally
-  }
-}
-
-void sensor_manager(){
-  //trying this with analogue read like above, but might try with digital read to see if it affects speed
-  //record the data
-  int nraw = analogRead(MYOWARE_RAW);
-  int nenv = analogRead(MYOWARE_ENV);
-  myMicros = micros(); //record the time
-  //add the recorded data to the array
-  sbuffer[0][sensor_id] = myMicros;
-  sbuffer[1][sensor_id] = nraw;
-  sbuffer[2][sensor_id] = nenv;
-  //iterate our tracker
-  sensor_id++;
-}
-
-void serial_manager(){
-  //this should run ever buffer length * saple rate seconds
-  //determine the length of the buffer in bytes, this will be used for printing
-  int datalen = sizeof(sbuffer);
-  //print the buffer
-  Serial.write(sbuffer, datalen);
 }

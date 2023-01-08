@@ -108,6 +108,6 @@ usbdata = open(file2, "r")
 extranalyze(praseusb(usbdata))
 
 #close the files once we're done
-#file1.close()
-#file2.close()
+#btdata.close()
+usbdata.close()
 
