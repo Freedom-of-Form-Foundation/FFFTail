@@ -2,16 +2,18 @@
 Github Repository containing relevant work files for the Freedom of Form Foundation's Enhanced Tail project!
 
 ## What's inside:
-### B6.1 Hardware Code
-- Current Stable release of the code
-- Capable of achieving a fairly consistent sample rate in the range of 1024Hz
-- Structurally very similar to the b6 code
-- Fixed the overflow bug in the esp32's output of time
-
 ### B7 Hardware Code
-- Structurally very different from the b6 lineage of code
-- Attempts to make things more efficient by simplifying them
-- Unfished/Nonfunctional, more of a preview into future revisions
+- Current Stable release of the code
+- Structurally very different from the b6 lineage of code; Much more simplified, both for readability and functionality
+- Capable of achieving a consistent sample rate of 1024Hz
+- Fixed the overflow bug in the esp32's output of time
+- Has Bluetooth, has not been tested, but should function
+
+### Serial Speed Test USB1
+- Testing code for measuring serial speed and help with debugging
+- contains essentially the most basic version of the code possible
+- no bluetooth integration, all data is sent over USB serial
+- very simple and easy to follow
 
 ### Grapher.py
 - Designed to read the serial data from the esp32 (or similar hardware) and live graph it in a human readable format

@@ -27,7 +27,7 @@ void loop() {
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
     last_check = micros(); //update when we'll wanna print next
-    nraw = analogRead(MYOWARE_RAW);
+    nraw = analogRead(MYOWARE_RAW); //read the raw values in
     nenv = analogRead(MYOWARE_ENV);
     Serial.print(String(last_check) + "," + String(nraw) + "," + String(nenv) + "\n");
   }
