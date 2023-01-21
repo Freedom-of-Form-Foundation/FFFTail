@@ -10,7 +10,7 @@ import pyqtgraph as pg
 import numpy as np
 #serial stuff
 ser = serial.Serial() #serial class
-ser.baudrate = 115200 #set the baudrade
+ser.baudrate = 230400 #set the baudrade
 
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
 
@@ -21,17 +21,33 @@ ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED
 
 #read 1 input line from the serial
 #helps make sure everything is in sync
+z = b''
 def read():
+    global z
+    rc = 0 #return counter to make sure we do three at a time
     #we're trying to read ~19 bytes from serial
     #at 1024 samples:
-    #- read(19) ~1.7
-    #- read_until) = ~4.7
-    #- readline = ~4.7
-    y = ser.read(19)
-    #z = y[:-1].split(",") #[time, raw, env]
+    #- read(19) ~1.047
+    #- read(1)+parse ~ 1.5 for 1/3; 4.6 for equivalent of 1024
+    #- read_until(b'\n') = ~4.6
+    #- readline = ~4.5
+    '''From the results of these tests we can conclude that the best way forward is going to be read(n) and making sure we are sending the correct # of bytes at once'''
     
-    print(y)
-    return y
+    #z = y[:-1].split(",") #[time, raw, env]
+    while rc < 3:
+        y = ser.read(1)
+        if (y == b'\n') or (y ==b','):
+            x = z
+            z = b''
+            #print(x)
+            rc = rc + 1
+            return x
+        else:
+            z = z+y
+    #return z
+
+
+
 
 #data storage for our graphs
 #might merge this with the buffer eventually, but for now we're keeping it seprate
@@ -65,7 +81,8 @@ ser.open() #open it
 #animate the graph
 count = 0
 x = time.time()
-while(count < 1024):
+#startWait()
+while(count < 3072):
     #pg.plot(xs, ys, pen='r')
     #roughBuff()
     read()
@@ -95,4 +112,14 @@ def roughBuff():
             #dump = data[2] #for some reason if you don't have this line it gives and out of bounds error on the previous line
     #print("ran rough buff at: {:f}".format(time.time()))
     lastcall = time.time()
+
+#function for trying to sync up reading from serial with the esp32's output
+def startWait():
+    started = 0
+    while not started:
+        y = ser.read(1)
+        #print(y)
+        if y == b'\n':
+            started += 1
+            print('go')
 '''

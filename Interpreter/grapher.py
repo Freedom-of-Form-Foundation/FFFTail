@@ -20,7 +20,7 @@ import threading
 '''Global Vairables and Setup'''
 #serial stuff
 ser = serial.Serial() #serial class
-ser.baudrate = 115200 #set the baudrade
+ser.baudrate = 230400 #set the baudrade
 
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
 

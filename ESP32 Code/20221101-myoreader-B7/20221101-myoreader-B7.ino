@@ -36,8 +36,8 @@ void setup() {
 }
 
 //the most recent values taken
-int nraw = 0;
-int nenv = 0;
+uint32_t nraw = 0;
+uint32_t nenv = 0;
 void loop() {
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
