@@ -44,16 +44,20 @@ uint16_t nenv = 0;
 void loop() {
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
-    last_check = micros(); //update when we'll wanna print next
-    //read in the analouge values
-    nraw = analogRead(MYOWARE_RAW);
-    nenv = analogRead(MYOWARE_ENV);
-    //write to serial
-    Serial.write(last_check);
-    Serial.write(nraw);
-    Serial.write(nenv);
-    //print to bluetoothserial
-    //SerialBT.print(String(last_check) + "," + String(nraw) + "," + String(nenv) + "\n");
+    if (Serial.availableForWrite() > 8) { //since we're writing 8 bits to cereal (4b+2b+2b) we wanna make sure we have enough space to do so; helps with sync
+      last_check = micros(); //update when we'll wanna print next
+      //read in the analouge values
+      nraw = analogRead(MYOWARE_RAW);
+      nenv = analogRead(MYOWARE_ENV);
+      //write to serial
+      Serial.write(last_check);
+      Serial.write(nraw);
+      Serial.write(nenv);
+      //write data to bluetoothserial
+      SerialBT.write(last_check);
+      SerialBT.write(nraw);
+      SerialBT.write(nenv);
+    }
   }
 }
 

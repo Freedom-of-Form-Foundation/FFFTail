@@ -35,7 +35,7 @@ def read():
     
     #z = y[:-1].split(",") #[time, raw, env]
     while rc < 3:
-        y = ser.read(1)
+        y = ser.read(8)
         if (y == b'\n') or (y ==b','):
             x = z
             z = b''
