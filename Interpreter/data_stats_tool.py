@@ -14,9 +14,10 @@ def parsebt(data):
     Lines = data.readlines()
     count = 0
     for line in Lines:
-        tvd = line.split() #0 in the array should be the time and the rest should be the data
+        #tvd = line.split() #0 in the array should be the time and the rest should be the data
         #get the times
-        microtime = tvd[1].split(",")
+        microtime = line.split(",") #microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
+        #print(microtime)
         times.append(float(microtime[0]))
 
         #get the delta t values
@@ -63,25 +64,41 @@ def comparedata(bluetooth, usb):
 
 def extranalyze(data):
     avg = 0
-    count = 0
+    count = 0 #sum of the values in data so far, used for calculating average
+    lcount = 0 #the last value of our count
+    cdips = 0 #the number of times that our count goes down (it should never do that)
     high = 0
-    low = 999999999999
+    low = 0
     datarange = 0
+    tbp = [] #to be popped, for helping clean up our data
     for i in range(len(data)):
         if data[i] > 0:
             count += data[i] #sum the array
-        #keep track of high and low
-        if 0 < data[i] < low:
-            low = data[i]
-        elif i > high:
-            high = data[i]
+            if(count <= lcount):
+                cdips += 1
+            lcount = count
+        else:
+            tbp.append(i)
+
+    #clean up our data some
+    #used for removing/tracking negative time differences
+    if len(tbp) > 0:
+        for n in tbp:
+            data.pop(n)
     
     avg = count / len(data)
+    #keep track of high and low
+    low = min(data)
+    high = max(data)
     datarange = high - low
-    print("average: %d" % avg)
-    print("maximum: %d" % high)
-    print("minimum: %d" % low)
-    print("range:   %d" % datarange)
+    print("Results: ")
+    print("average: {}μs".format(avg))
+    print("maximum: {}μs".format(high))
+    print("minimum: {}μs".format(low))
+    print("range:   {}μs\n".format(datarange))
+    print("Testing attributes: ")
+    print("Drops in total before divison for average: {}".format(cdips))
+    print("Negative time differences: {}".format(len(tbp)))
 
 #def nullCount(data):
     #for i in range
@@ -91,23 +108,25 @@ def skipCount(data):
     for i in range(len(data) - 1):
         if data[i] > data[i + 1]:
             skips += 1 #count a skip
-            print("t1: %d t2: %d" % (data[i], data[i+1]))
+            #print("t1: %d t2: %d" % (data[i], data[i+1]))
     print("Skips: %d" % skips)
 
 #code that does stuff
 #file1 = input("Bluetooth Path: ")
-file2 = input("USB path: ")
+file2 = input("Path To Data: ")
 #btdata = open(file1, "r")
-usbdata = open(file2, "r")
+data = open(file2, "r")
 
 #comapre deltas
 #comparedata(parsebt(btdata), praseusb(usbdata))
 
 #print(parsebt(btdata))
 #print(praseusb(usbdata))
-extranalyze(praseusb(usbdata))
-
+parsed = parsebt(data)
+#print(parsed)
+extranalyze(parsed)
+skipCount(parsed)
 #close the files once we're done
 #btdata.close()
-usbdata.close()
+data.close()
 
