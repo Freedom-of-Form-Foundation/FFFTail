@@ -7,7 +7,7 @@ Github Repository containing relevant work files for the Freedom of Form Foundat
 - Structurally very different from the b6 lineage of code; Much more simplified, both for readability and functionality
 - Capable of achieving a consistent sample rate of 1024Hz
 - Fixed the overflow bug in the esp32's output of time
-- Has Bluetooth, has not been tested, but should function
+- Blueetooth functionality still under development
 
 ### Serial Speed Test USB1
 - Testing code for measuring serial speed and help with debugging
