@@ -46,8 +46,23 @@ def read():
             z = z+y
     #return z
 
-
-
+#utf-16 should be the correct encoding for how we're sending it from arduino
+#however I get random chars when I decode that so I think it's a scyn issue
+#since we know we're looking for a message 12 characters long as long as we have a window (w) twice that size we should find the correct orientation by sliding accross it
+#this code probabl won't be useful beyond these tests but who knows, here's to hoping!
+def testEncoding():
+    #printing the array, or segments of it gives a value such as: b'\x01\xf3\xe5\xc8\xf9\xe0\x8f\xd1IV&F\x1d+E\xe4+E\xab/Er1E'
+    #printing just an individual byte gives us a value from 0-255
+    w = ser.read(24)
+    print("messing around with w[n]")
+    for i in range(len(w)-8):
+        p = []
+        j = i+4
+        #print(w[i:j].decode('utf-16'))
+        p = w[i:j]
+        print(p[0])
+    print("just print(w): ")
+    print(w)
 
 #data storage for our graphs
 #might merge this with the buffer eventually, but for now we're keeping it seprate
@@ -77,19 +92,23 @@ def roughBuff():
     lastcall = time.time()
 
 #maybe run this on it's own thread?
+print("starting!")
 ser.open() #open it
+testEncoding()
+'''
 #animate the graph
 count = 0
 x = time.time()
 #startWait()
-while(count < 3072):
+while(count < 1024):
     #pg.plot(xs, ys, pen='r')
     #roughBuff()
     read()
     count += 1
+    print(count)
 y = time.time()
 print(y-x)
-
+'''
 '''
 #the function which animates things
 def roughBuff():

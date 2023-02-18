@@ -1,8 +1,7 @@
 // Myoreader.ino: A sketch to log data from a MyoWare. Written by Bleddyn for the FFF, Nov. 9, 2021.
 // Edits for consistency and sample rate controll made by Mecknavorz for the FFF, March 10, 2022-
 // b7 able to achive consistent 1024 sample rate with minimal deviance
-// b7.1 aims to send the data in an exact format for consistent reading
-// b7.2 preform handshake to make reading even easier eg things are starting in sync?
+// b7.1 aims to send the data in an exact format for consistent reading, should help with bluetooth implementation
 
 #include "BluetoothSerial.h"
 //#include "ESP32Time.h"
@@ -39,12 +38,12 @@ void setup() {
 
 //the most recent values taken
 //since these values should only be 0-4095(?) we don't needs more than two byte each
-uint16_t nraw = 0;
-uint16_t nenv = 0;
+uint32_t nraw = 0;
+uint32_t nenv = 0;
 void loop() {
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
-    if (Serial.availableForWrite() > 8) { //since we're writing 8 bits to cereal (4b+2b+2b) we wanna make sure we have enough space to do so; helps with sync
+    if (Serial.availableForWrite() > 12) { //since we're writing 12 bits to cereal (4b+4b+4b) we wanna make sure we have enough space to do so; helps with sync
       last_check = micros(); //update when we'll wanna print next
       //read in the analouge values
       nraw = analogRead(MYOWARE_RAW);
