@@ -43,5 +43,3 @@ void loop() {
     }
   }
 }
-
-//since we need to conver values to strings when we output them
