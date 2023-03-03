@@ -3,19 +3,9 @@
 // b7 able to achive consistent 1024 sample rate with minimal deviance
 // b7.1 aims to send the data in an exact format for consistent reading, should help with bluetooth implementation
 
-#include "BluetoothSerial.h"
-//#include "ESP32Time.h"
-
-//make sure we can access bluetooth
-#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-#error Bluetooth is not enabled! Please run `make menuconfig` to enable it
-#endif
-
 //the pins we're gonna be reading the myoware data from
 #define MYOWARE_RAW 37 //raw values
 #define MYOWARE_ENV 39 //envolope values
-
-BluetoothSerial SerialBT;
 
 //ESP32Time rtc;
 uint32_t myMicros = 0; //for keeping track of time
@@ -23,7 +13,6 @@ const int sample_rate = 966; //488 microseconds gives us a rate of 2048Hz, which
 
 void setup() {
   Serial.begin(230400);
-  SerialBT.begin("Myoreader"); //Bluetooth device name
   Serial.println("The device started, now you can pair it with bluetooth!");
 
   // Disable watchdog timer reset.
@@ -33,7 +22,6 @@ void setup() {
   
   myMicros = micros();
   Serial.print(myMicros); Serial.println(",Raw value (0--4095),Env value (0--4095)");
-  SerialBT.print(myMicros); SerialBT.println(",Raw value (0--4095),Env value (0--4095)");
 }
 
 //the most recent values taken
@@ -52,10 +40,6 @@ void loop() {
       Serial.write(last_check);
       Serial.write(nraw);
       Serial.write(nenv);
-      //write data to bluetoothserial
-      SerialBT.write(last_check);
-      SerialBT.write(nraw);
-      SerialBT.write(nenv);
     }
   }
 }
