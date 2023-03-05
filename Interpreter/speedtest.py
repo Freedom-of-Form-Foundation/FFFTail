@@ -35,7 +35,7 @@ def read():
     
     #z = y[:-1].split(",") #[time, raw, env]
     while rc < 3:
-        y = ser.read(8)
+        y = ser.read(12)
         if (y == b'\n') or (y ==b','):
             x = z
             z = b''
@@ -45,6 +45,10 @@ def read():
         else:
             z = z+y
     #return z
+
+#attempt at making the program read data fast and not have it be weirdly segmented
+def smartRead():
+    print("Oops! Not done yet!")
 
 #utf-16 should be the correct encoding for how we're sending it from arduino
 #however I get random chars when I decode that so I think it's a scyn issue
@@ -91,10 +95,20 @@ def roughBuff():
     #print("ran rough buff at: {:f}".format(time.time()))
     lastcall = time.time()
 
+#function we should call to try and make things in sync
+#calling it pawshake instead of handshake because it's funny and furry
+def pawshake():
+    ser.write(621)
+    w = ser.readline()#.decode() #not sure if the decode is needed
+    #do this last to make sure whatever we get from here is gonna be our code
+    reset_input_buffer()
+
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
+pawshake()
 testEncoding()
+
 '''
 #animate the graph
 count = 0
