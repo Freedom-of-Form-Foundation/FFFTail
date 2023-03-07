@@ -23,12 +23,12 @@ def parsebt(data):
         #get the delta t values
         if count > 1:
             dt.append(times[count] - times[count-1])
-
+        #print(count + " - t1:" times[count] + "; t2:" + times[count-1])
         count +=1 #iterate the line number
     return dt
 
 #parse the usb data, since it has a slightly different format
-def praseusb(data):
+def parseusb(data):
     times = [] #times when things happen
     dt = [] #changes in time
     #values = [] #actual readings at times
@@ -122,10 +122,10 @@ data = open(file2, "r")
 
 #print(parsebt(btdata))
 #print(praseusb(usbdata))
-parsed = parsebt(data)
+parsed = parseusb(data)
 #print(parsed)
 extranalyze(parsed)
-skipCount(parsed)
+#skipCount(parsed) #this doesn't work because you're talking the difference in time not the actual times
 #close the files once we're done
 #btdata.close()
 data.close()
