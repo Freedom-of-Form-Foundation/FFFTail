@@ -15,6 +15,11 @@ Github Repository containing relevant work files for the Freedom of Form Foundat
 - no bluetooth integration, all data is sent over USB serial
 - very simple and easy to follow
 
+### Quickgrapher.py
+- Designed as a hold over till grapher.py is done
+- Graphs recorded data files, namely the expected output of the arduino serial monitor with time stamps turned on
+- Beyond displaying the Raw and Env values recorded, it also shows useful data about consistency similar to using data_stats_tool.py
+
 ### Grapher.py
 - Designed to read the serial data from the esp32 (or similar hardware) and live graph it in a human readable format
 
