@@ -9,6 +9,7 @@ from matplotlib import style
 import numpy as np
 import math
 
+'''main functions'''
 #parse the usb data, since it has a slightly different format
 #this assumes arduino serial monitor has been set to have timestamps enabled
 #eg format of each line looks roughly like: 14:17:57.637 -> 60733167,1867,549
@@ -91,7 +92,7 @@ def quickgraph(parsed, extradata):
     ax.legend() #to help differentiate the values being graphed
     ax.grid(True)
     #add the other info we want displayed, eg consistency stuff
-    extratext = 'Consistency Results:\n Average deviation: {a}μs\n Maximum: {h}μs\n Minimum: {l}μs\n Range: {r}μs\n\n Testing Attributes:\n Drops in total before divison for average: {c}\n Negative time differences: {n}'.format(
+    extratext = 'Consistency Results:\n Average delay between samples: {a}μs\n Maximum: {h}μs\n Minimum: {l}μs\n Range: {r}μs\n\n Testing Attributes:\n Drops in total before divison for average: {c}\n Negative time differences: {n}'.format(
         a=round(extradata[0], 2), h=extradata[1], l=extradata[2], r=extradata[3], c=extradata[4], n=extradata[5])
     plt.gcf().text(.15, .6, extratext, fontsize = 8, 
          bbox = dict(facecolor = 'gray', alpha = 0.5))
