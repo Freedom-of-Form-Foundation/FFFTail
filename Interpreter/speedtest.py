@@ -99,15 +99,17 @@ def roughBuff():
 #calling it pawshake instead of handshake because it's funny and furry
 def pawshake():
     ser.write(621)
+    time.sleep(.1) #wait a little bit
     w = ser.readline()#.decode() #not sure if the decode is needed
     #do this last to make sure whatever we get from here is gonna be our code
+    #if(
     reset_input_buffer()
 
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
 pawshake()
-testEncoding()
+smartRead()
 
 '''
 #animate the graph
