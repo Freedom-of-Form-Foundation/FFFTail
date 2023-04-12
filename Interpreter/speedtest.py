@@ -46,10 +46,6 @@ def read():
             z = z+y
     #return z
 
-#attempt at making the program read data fast and not have it be weirdly segmented
-def smartRead():
-    print("Oops! Not done yet!")
-
 #utf-16 should be the correct encoding for how we're sending it from arduino
 #however I get random chars when I decode that so I think it's a scyn issue
 #since we know we're looking for a message 12 characters long as long as we have a window (w) twice that size we should find the correct orientation by sliding accross it
@@ -98,12 +94,42 @@ def roughBuff():
 #function we should call to try and make things in sync
 #calling it pawshake instead of handshake because it's funny and furry
 def pawshake():
-    ser.write(621)
+    bool shake = False
+    #might need to change this to send a byte narray instead?
+    ser.write(bytearray([6]))
+    #ser.write(6)
     time.sleep(.1) #wait a little bit
-    w = ser.readline()#.decode() #not sure if the decode is needed
-    #do this last to make sure whatever we get from here is gonna be our code
-    #if(
-    reset_input_buffer()
+    #since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
+    while(!shake):
+        #wait to see if the byte has been sent
+        '''SOMETHING TO CONSIDER:''' #should we check to see if it's zero or just one less than what it was when we started?
+        if(ser.out_waiting == 0):
+            w = ser.readline()#.decode() #not sure if the decode is needed
+            #see of the ESP32 send a message back
+            if(ser.in_waiting > 0):
+                #clear the buffer so we don't read junk data by accident
+                reset_input_buffer()
+                #update our shake so that we can do the rest of the things
+                shake = True
+                
+#attempt at making the program read data fast and not have it be weirdly segmented
+def smartRead():
+    #we know the incoming message should be 12 bytes
+    #3 x uint32_t = 3x4 = 12 bytes
+    #[0-3] = time of sample
+    #[4-7] = raw value
+    #[8-11] = env value
+    
+    #essentially check to make sure we have completed messages in there
+    if(ser.in_waiting % 12 == 0):
+        #read one whole output
+        m = ser.read(12)
+        #need to decide if this is how I actually want to return values
+        #does conversion/calculation need to be done elsewhere for speed?
+        t = m[0:3]
+        r = m[4:7]
+        e = m[8:11]
+    print("Oops! Not done yet!")
 
 #maybe run this on it's own thread?
 print("starting!")
