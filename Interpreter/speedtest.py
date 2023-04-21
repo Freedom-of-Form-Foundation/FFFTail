@@ -94,21 +94,22 @@ def roughBuff():
 #function we should call to try and make things in sync
 #calling it pawshake instead of handshake because it's funny and furry
 def pawshake():
-    bool shake = False
-    #might need to change this to send a byte narray instead?
-    ser.write(bytearray([6]))
-    #ser.write(6)
-    time.sleep(.1) #wait a little bit
+    print("Performing pawshake...")
+    shake = False #for tracking if we actually shook or not
+    ser.write(621) #write some random data to let the esp32 know we're here
     #since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
-    while(!shake):
+    oldout = ser.out_waiting
+    while(not shake):
         #wait to see if the byte has been sent
         '''SOMETHING TO CONSIDER:''' #should we check to see if it's zero or just one less than what it was when we started?
-        if(ser.out_waiting == 0):
+        if(ser.out_waiting < oldout):
             w = ser.readline()#.decode() #not sure if the decode is needed
+            print(w)
+            ser.write(621)
             #see of the ESP32 send a message back
             if(ser.in_waiting > 0):
                 #clear the buffer so we don't read junk data by accident
-                reset_input_buffer()
+                ser.reset_input_buffer()
                 #update our shake so that we can do the rest of the things
                 shake = True
                 
@@ -130,13 +131,14 @@ def smartRead():
         r = m[4:7]
         e = m[8:11]
     print("Oops! Not done yet!")
+    print("Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t, ra=r, en=e))
 
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
 pawshake()
 smartRead()
-
+ser.close()
 '''
 #animate the graph
 count = 0

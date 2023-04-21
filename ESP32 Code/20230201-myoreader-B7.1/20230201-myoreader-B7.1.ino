@@ -22,13 +22,13 @@ void setup() {
   //also makes sure the code doesn't reset from running too little too fast :/ :/
   disableCore0WDT();
 
-  extraSetup(); //run the functions that didn't work here
+  pawShake(); //preform the pawshake to make sure both ends are synched
   
   myMicros = micros();
 }
 
 //added this function because for some reason trying to run some of this in setup didn't work???
-void extraSetup(){
+void pawShake(){
   Serial.println("ESP32 started, waiting for pawshake to finish...");   //print a message just to make sure we did indeed start
   //if we still haven't got the start code
   while(!start){
@@ -38,7 +38,6 @@ void extraSetup(){
       start = true; //make sure our start time is set to true so we break the while loop
 
       //pause for wait seconds so that the python code has time to get ready
-      //MAKE SURE VALUES MATCH WHAT IS BEING PRINTED
       delay(wait * 1000);
     }
   }
