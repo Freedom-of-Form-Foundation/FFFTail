@@ -97,21 +97,27 @@ def pawshake():
     print("Performing pawshake...")
     shake = False #for tracking if we actually shook or not
     ser.write(621) #write some random data to let the esp32 know we're here
-    #since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
+    #recoding  how much data is in the input/output buffers for later comparison
     oldout = ser.out_waiting
+    oldin = ser.in_waiting
+    #since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
     while(not shake):
-        #wait to see if the byte has been sent
+        #wait to see if the bytes has been sent
         '''SOMETHING TO CONSIDER:''' #should we check to see if it's zero or just one less than what it was when we started?
         if(ser.out_waiting < oldout):
-            w = ser.readline()#.decode() #not sure if the decode is needed
+            w = ser.readline().decode() #not sure if the decode is needed
             print(w)
             ser.write(621)
             #see of the ESP32 send a message back
-            if(ser.in_waiting > 0):
+            #trying this by looking at the previous in vaue instead of 
+            if(ser.in_waiting > oldin):
                 #clear the buffer so we don't read junk data by accident
                 ser.reset_input_buffer()
                 #update our shake so that we can do the rest of the things
                 shake = True
+        #if we did the shake we don't need to wait
+        if not shake:
+            sleep(.1) #sleep for .1 seconds before checking to see if theer was a response again
                 
 #attempt at making the program read data fast and not have it be weirdly segmented
 def smartRead():

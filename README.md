@@ -9,16 +9,17 @@ Github Repository containing relevant work files for the Freedom of Form Foundat
 - Fixed the overflow bug in the esp32's output of time
 - bluetooth planned for future versions
 
-### Serial Speed Test USB1
-- Testing code for measuring serial speed and help with debugging
-- contains essentially the most basic version of the code possible
-- no bluetooth integration, all data is sent over USB serial
-- very simple and easy to follow
-
 ### Quickgrapher.py
 - Designed as a hold over till grapher.py is done
 - Graphs recorded data files, namely the expected output of the arduino serial monitor with time stamps turned on
 - Beyond displaying the Raw and Env values recorded, it also shows useful data about consistency similar to using data_stats_tool.py
+
+### Serial Speed Test USB1&2
+- USB1 is for testing code for measuring serial speed and help with debugging
+- USB2 is for testing and debugging pawshake code as well as sync between ESP32 and python code
+- contains essentially the most basic version of the code possible
+- no bluetooth integration, all data is sent over USB serial
+- very simple and easy to follow
 
 ### Grapher.py
 - Designed to read the serial data from the esp32 (or similar hardware) and live graph it in a human readable format

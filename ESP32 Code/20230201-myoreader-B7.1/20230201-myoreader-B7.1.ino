@@ -15,7 +15,7 @@ bool start = false; //used to help us control when the full code starts vs just 
 void setup() {
   Serial.begin(230400);  //turn on serial; this speed helps ensure we can send data fast enough
   delay(500);
-  while(!Serial); //make sure serial is ope
+  while(!Serial); //make sure serial is up
   
   // Disable watchdog timer reset.
   //makes sure our output ins't occasionally peppered with junk errors
