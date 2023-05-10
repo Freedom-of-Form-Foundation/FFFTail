@@ -105,8 +105,8 @@ def pawshake():
         #wait to see if the bytes has been sent
         '''SOMETHING TO CONSIDER:''' #should we check to see if it's zero or just one less than what it was when we started?
         if(ser.out_waiting < oldout):
-            w = ser.readline().decode() #not sure if the decode is needed
-            print(w)
+            w = ser.readline()#.decode() #not sure if the decode is needed
+            print(w[-104:-1]) #needs to be tailored to specific start message, current message is 52 char long w/2 end chars
             ser.write(621)
             #see of the ESP32 send a message back
             #trying this by looking at the previous in vaue instead of 
@@ -117,27 +117,31 @@ def pawshake():
                 shake = True
         #if we did the shake we don't need to wait
         if not shake:
-            sleep(.1) #sleep for .1 seconds before checking to see if theer was a response again
+            time.sleep(.1) #sleep for .1 seconds before checking to see if theer was a response again
                 
 #attempt at making the program read data fast and not have it be weirdly segmented
 def smartRead():
-    #we know the incoming message should be 12 bytes
-    #3 x uint32_t = 3x4 = 12 bytes
+    #we know the incoming message should be 8 bytes
+    #1 x uint32_t + 2 x uint16_t = 4 + 2*2 = 8
     #[0-3] = time of sample
-    #[4-7] = raw value
-    #[8-11] = env value
+    #[4-5] = raw value
+    #[6-7] = env value
     
     #essentially check to make sure we have completed messages in there
-    if(ser.in_waiting % 12 == 0):
+    if(ser.in_waiting % 8 == 0):
         #read one whole output
-        m = ser.read(12)
+        m = ser.read(32)
         #need to decide if this is how I actually want to return values
         #does conversion/calculation need to be done elsewhere for speed?
-        t = m[0:3]
-        r = m[4:7]
-        e = m[8:11]
+        t = m[0:3]#.decode()
+        r = m[4:5]#.decode()
+        e = m[6:7]#.decode()
     print("Oops! Not done yet!")
+    print("m:")
+    for i in m:
+        print("{j}".format(j=i))
     print("Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t, ra=r, en=e))
+    print("Decoded - Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t.decode('utf-32'), ra=r.decode('utf-16'), en=e.decode('utf-16')))
 
 #maybe run this on it's own thread?
 print("starting!")

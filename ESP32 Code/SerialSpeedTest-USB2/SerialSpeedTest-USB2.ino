@@ -8,8 +8,11 @@
 //ESP32Time rtc;
 uint32_t myMicros = 0;
 const int sample_rate = 966; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
-uint32_t nraw = 0;
-uint32_t nenv = 0;
+//these only need to store values between 0-4095; so they don't need to be that big
+uint16_t nraw = 0;
+uint16_t nenv = 0;
+bool start = false;
+int wait = 3;
 
 void setup() {
   Serial.begin(230400);
@@ -37,7 +40,7 @@ void pawShake(){
       nraw = analogRead(MYOWARE_RAW); //read the raw values in
       nenv = analogRead(MYOWARE_ENV);
       
-      Serial.println("Start signal recived, Sending myoware readings from ESP32 in " + String(wait) + " seconds; Look for Raw: " + String(nraw) + " and Env: " + String(nevn));
+      Serial.println("Start signal recived, Sending myoware readings from ESP32 in " + String(wait) + " seconds; Look for Raw: " + String(nraw) + " and Env: " + String(nenv));
       start = true; //make sure our start time is set to true so we break the while loop
 
       //pause for wait seconds so that the python code has time to get ready
@@ -49,17 +52,32 @@ void pawShake(){
   }
 }
 
+//in order to properly utilize serial write we need to convert our multi byte values
+//We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
+byte sample[8]; //byte array to store all the data we want to send in a given sample
+void byteSample(uint32_t t, uint16_t r, uint16_t e){
+  //since time is stored as uint32_t, we need 4 bytes for it in the array
+  sample[0] = t & 255;
+  sample[1] = (t >> 8) & 255;
+  sample[2] = (t >> 16) & 255;
+  sample[3] = (t >> 24) & 255;
+  //raw is uint_16, we need 2 bytes for it in the array
+  sample[4] = r & 255;
+  sample[5] = (r >> 8) & 255;
+  //env is uint_16, we need 2 bytes for it in the array
+  sample[6] = e & 255;
+  sample[7] = (e >> 8) & 255;
+}
+
 void loop() {
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
     if (Serial.availableForWrite() > 12) { //since we're writing 12 bits to cereal (4b+4b+4b) we wanna make sure we have enough space to do so; helps with sync
       last_check = micros(); //update when we'll wanna print next
-      //read in the analouge values
+      byteSample(last_check, nraw, nenv);
       //Raw: 0-4095   Env: 0-4095
       //write to serial
-      Serial.write(last_check);
-      Serial.write(nraw);
-      Serial.write(nenv);
+      Serial.write(sample, sizeof(sample));
     }
   }
 }
