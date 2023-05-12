@@ -1,4 +1,4 @@
-.// SerialSpeedTest-USB2: simple sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
+// SerialSpeedTest-USB2: simple sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
 //Right now A derivative of b7.1 + SerialSpeedTest-USB1; Raw and env stay constant through transmission
 // Made by MEcknavorz (T&R), for the FFF, January 8st, 2023
 
