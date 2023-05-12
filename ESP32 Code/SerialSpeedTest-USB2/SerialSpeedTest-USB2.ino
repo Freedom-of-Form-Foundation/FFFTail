@@ -1,4 +1,4 @@
-// SerialSpeedTest-USB2: simple sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
+.// SerialSpeedTest-USB2: simple sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
 //Right now A derivative of b7.1 + SerialSpeedTest-USB1; Raw and env stay constant through transmission
 // Made by MEcknavorz (T&R), for the FFF, January 8st, 2023
 
@@ -57,16 +57,16 @@ void pawShake(){
 byte sample[8]; //byte array to store all the data we want to send in a given sample
 void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //since time is stored as uint32_t, we need 4 bytes for it in the array
-  sample[0] = t & 255;
-  sample[1] = (t >> 8) & 255;
-  sample[2] = (t >> 16) & 255;
-  sample[3] = (t >> 24) & 255;
+  sample[0] = (t >> 24) & 255;
+  sample[1] = (t >> 16) & 255;
+  sample[2] = (t >> 8) & 255;
+  sample[3] = t & 255;
   //raw is uint_16, we need 2 bytes for it in the array
-  sample[4] = r & 255;
-  sample[5] = (r >> 8) & 255;
+  sample[4] = (r >> 8) & 255;
+  sample[5] = r & 255;
   //env is uint_16, we need 2 bytes for it in the array
-  sample[6] = e & 255;
-  sample[7] = (e >> 8) & 255;
+  sample[6] = (e >> 8) & 255;
+  sample[7] = e & 255;
 }
 
 void loop() {
