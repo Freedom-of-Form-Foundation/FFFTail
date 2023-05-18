@@ -137,62 +137,39 @@ def smartRead():
         r = m[4:5]#.decode()
         e = m[6:7]#.decode()
     print("Oops! Not done yet!")
+    print(type(m))
     print("m:")
     for i in m:
         print("{j}".format(j=i))
     print("Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t, ra=r, en=e))
     print("Decoded - Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t.decode('utf-32'), ra=r.decode('utf-16'), en=e.decode('utf-16')))
 
+#grab multiple same length samples and check to see if they remain aligned each time
+passes = [] #for storing data
+def alignCheck(pcnt):
+    print("Prefomring Alignment check...")
+    #for keeping track of which pass we're on
+    ocnt = pcnt
+    while pcnt > 0:
+        if ser.in_waiting > 32:
+            m = ser.read(32)
+            print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
+            passes.append(m)
+        pcnt = pcnt-1
+
+    #just to make things look nicer/make the output clearer
+    print("{c} passes of length {l}:".format(c=len(passes), l=len(passes[0])))
+    #print and compare them all:
+    for i in range(len(passes[0])):
+        toPrint = ""
+        for j in range(len(passes)):
+            toPrint += "{b}\t".format(b=passes[j][i])
+        print(toPrint)
+    
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
 pawshake()
-smartRead()
+#smartRead()
+alignCheck(8)
 ser.close()
-'''
-#animate the graph
-count = 0
-x = time.time()
-#startWait()
-while(count < 1024):
-    #pg.plot(xs, ys, pen='r')
-    #roughBuff()
-    read()
-    count += 1
-    print(count)
-y = time.time()
-print(y-x)
-'''
-'''
-#the function which animates things
-def roughBuff():
-    #make sure we're storing to the right arays
-    global xs
-    global ys
-    global lastcall
-    #rouighly one tenth of our tample rate (1024) so swe should call this every 10th of a second
-    #for i in range(1024):
-    data = read() #read once from serial
-    z = data[:-1].split(",") #[time, raw, env]
-    #print(data) #debugging stuff
-    if len(z) > 2: #this makes sure we only record valid arrays
-        if (z[0] != '') and (z[0] != '') and (z[0] != ''):
-            #time = timecheck(int(data[0])) #convert out time to be poper for the graph; MIGHT BE REDUNDANT WITH NEW GRAPH?
-            #add data to our axis
-            xs.append(z[0]) 
-            ys.append(z[1])
-            #DO NOT DELETE THIS LINE
-            #dump = data[2] #for some reason if you don't have this line it gives and out of bounds error on the previous line
-    #print("ran rough buff at: {:f}".format(time.time()))
-    lastcall = time.time()
-
-#function for trying to sync up reading from serial with the esp32's output
-def startWait():
-    started = 0
-    while not started:
-        y = ser.read(1)
-        #print(y)
-        if y == b'\n':
-            started += 1
-            print('go')
-'''
