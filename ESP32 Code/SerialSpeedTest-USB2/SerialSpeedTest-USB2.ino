@@ -1,6 +1,7 @@
-// SerialSpeedTest-USB2: simple sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
-//Right now A derivative of b7.1 + SerialSpeedTest-USB1; Raw and env stay constant through transmission
-// Made by MEcknavorz (T&R), for the FFF, January 8st, 2023
+// SerialSpeedTest-USB2: sketch for helping test out the pawshake function and ensure sync between ESP32 and Python code
+// Right now A derivative of b7.1 + SerialSpeedTest-USB1; Raw and env stay constant through transmission
+// helpful for ensuring alignment to make sure we can be read from easily
+// Made by Mecknavorz (T&R), for the FFF, January 8th, 2023
 
 #define MYOWARE_RAW 37
 #define MYOWARE_ENV 39
@@ -50,7 +51,18 @@ void pawShake(){
     //just wait a bit before trying again
     delay(100);
   }
+  //alignHelper();
 }
+
+//send out a pattern of bytes of a known length/valuyes
+//this allows us to look for it at the start when we run our python code
+//which in turn allows us to determine where things are divided for the output
+void alignHelper(){
+  //using prime numbers in order becaues the chance of that sequence appearing at random should be fairly low
+  byte helper[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 41, 43, 47, 53, 59};
+  Serial.write(helper, 16);
+}
+
 
 //in order to properly utilize serial write we need to convert our multi byte values
 //We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
