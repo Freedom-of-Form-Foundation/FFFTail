@@ -43,6 +43,23 @@ void pawShake(){
   }
 }
 
+//in order to properly utilize serial write we need to convert our multi byte values
+//We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
+byte sample[8]; //byte array to store all the data we want to send in a given sample
+void byteSample(uint32_t t, uint16_t r, uint16_t e){
+  //since time is stored as uint32_t, we need 4 bytes for it in the array
+  sample[0] = (t >> 24) & 255;
+  sample[1] = (t >> 16) & 255;
+  sample[2] = (t >> 8) & 255;
+  sample[3] = t & 255;
+  //raw is uint_16, we need 2 bytes for it in the array
+  sample[4] = (r >> 8) & 255;
+  sample[5] = r & 255;
+  //env is uint_16, we need 2 bytes for it in the array
+  sample[6] = (e >> 8) & 255;
+  sample[7] = e & 255;
+}
+
 //the most recent values taken
 //since these values should only be 0-4095(?) we don't needs more than two byte each
 uint32_t nraw = 0;
@@ -58,6 +75,8 @@ void loop() {
       //Env: 0-4095
       nraw = analogRead(MYOWARE_RAW);
       nenv = analogRead(MYOWARE_ENV);
+      //convert everything to proper bytes for sedning
+      byteSample(last_check, nraw, nenv);
       //write to serial
       Serial.write(last_check);
       Serial.write(nraw);
