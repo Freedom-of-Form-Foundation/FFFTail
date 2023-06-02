@@ -128,6 +128,7 @@ def smartRead():
     #[6-7] = env value
     
     #essentially check to make sure we have completed messages in there
+    #need to implement some way of making sure we're always looking for the right amount of bytes
     if(ser.in_waiting % 8 == 0):
         #read one whole output
         m = ser.read(32)
@@ -149,7 +150,7 @@ passes = [] #for storing data
 def alignCheck(pcnt):
     print("Prefomring Alignment check...")
     #for keeping track of which pass we're on
-    ocnt = pcnt
+    #ocnt = pcnt
     while pcnt > 0:
         if ser.in_waiting > 32:
             m = ser.read(32)
@@ -165,11 +166,49 @@ def alignCheck(pcnt):
         for j in range(len(passes)):
             toPrint += "{b}\t".format(b=passes[j][i])
         print(toPrint)
-    
+
+#variation of align checker for use with SerialSpeedTest-USB2
+#in short: it looks for this pattern: [prev entry], time[4 bytes], raw [2 bytes], env [2 bytes], time [4 bytes], [new entry]
+#each sample is expected to be 12 bytes, with the 4 at the start and end being thwe time of the sample
+#may change the pattern down the line, or for the final version SO BE AWARE
+def timeAlignCheck(scnt):
+    print("Performing verification via time alignment in samples...")
+    rData = []
+    #collect data
+    while scnt > 0:
+        if ser.in_waiting > 24:
+            m = ser.read(24)
+            print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
+            #add the data from the buffer into our run's data
+            rData += m
+        rcnt = rcnt-1
+
+    #look for the data we wanna see by running the pattern across it
+    step = 0 #used to keep track of alignment, starts from zero
+    found = False #as long as we haven't found it keep trying
+    #variables to keep track of where we're looking
+    fs = 0 #first start
+    fe = 3 #first end
+    ss = 8 #second start
+    se = 11 #second end
+    #make sure to check for step of length equal to sample size
+    while (found == False) or (step > 11):
+        if (rcnt[fs:fe] == rcnt[ss:se]):
+            print("Alignment found! Shifting start by {n} bytes...".format(n=step))
+                found = True #set found to true to get out of the loop
+                return step
+        else:
+            #if the values don't match the expected pattern, keep going
+            step += 1
+    #print an error if we didn't find it
+    if step > 11:
+        print("Test Failed, Expected pattern not found :( :(")
+        
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
 pawshake()
 #smartRead()
-alignCheck(8)
+#alignCheck(8)
+alignment = timeAlignCheck(8)
 ser.close()

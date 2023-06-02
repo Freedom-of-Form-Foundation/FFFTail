@@ -60,13 +60,13 @@ void pawShake(){
 void alignHelper(){
   //using prime numbers in order becaues the chance of that sequence appearing at random should be fairly low
   byte helper[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 41, 43, 47, 53, 59};
-  Serial.write(helper, 16);
+  Serial.write(helper, sizeof(sample));
 }
-
 
 //in order to properly utilize serial write we need to convert our multi byte values
 //We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
 byte sample[8]; //byte array to store all the data we want to send in a given sample
+//byte sample[12]; //byte array to store all the data we want to send in a given sample
 void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //since time is stored as uint32_t, we need 4 bytes for it in the array
   sample[0] = (t >> 24) & 255;
@@ -79,6 +79,12 @@ void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //env is uint_16, we need 2 bytes for it in the array
   sample[6] = (e >> 8) & 255;
   sample[7] = e & 255;
+  //adding a duplicate tijme for identification potentially
+  //since it's only an additional 4 bytes I don't expect it to impact speed signifnicantly
+  sample[8] = sample[0];
+  sample[9] = sample[1];
+  sample[10] = sample[2];
+  sample[11] = sample[3];
 }
 
 void loop() {
