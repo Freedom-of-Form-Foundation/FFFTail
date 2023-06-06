@@ -40,8 +40,15 @@ void pawShake(){
       //doing it this way helps makes sure that the bits we're sending will be in the format they would be in the real code
       nraw = analogRead(MYOWARE_RAW); //read the raw values in
       nenv = analogRead(MYOWARE_ENV);
+      //raw is uint_16, we need 2 bytes for it in the array
+      byte r1, r2, e1, e2 = 0;
+      r1 = (nraw >> 8) & 255;
+      r2 = nraw & 255;
+      //env is uint_16, we need 2 bytes for it in the array
+      e1 = (nenv >> 8) & 255;
+      e2 = nenv & 255;
       
-      Serial.println("Start signal recived, Sending myoware readings from ESP32 in " + String(wait) + " seconds; Look for Raw: " + String(nraw) + " and Env: " + String(nenv));
+      Serial.println("Start signal recived, Sending myoware readings from ESP32 in " + String(wait) + " seconds; Look for Raw: " + String(nraw) + " (" + String(r1) + "," + String(r2) + ") and Env: " + String(nenv) + " (" + String(e1) + "," + String(e2)+")");
       start = true; //make sure our start time is set to true so we break the while loop
 
       //pause for wait seconds so that the python code has time to get ready
@@ -60,13 +67,13 @@ void pawShake(){
 void alignHelper(){
   //using prime numbers in order becaues the chance of that sequence appearing at random should be fairly low
   byte helper[16] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 41, 43, 47, 53, 59};
-  Serial.write(helper, sizeof(sample));
+  Serial.write(helper, sizeof(helper));
 }
 
 //in order to properly utilize serial write we need to convert our multi byte values
 //We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
-byte sample[8]; //byte array to store all the data we want to send in a given sample
-//byte sample[12]; //byte array to store all the data we want to send in a given sample
+//byte sample[8]; //byte array to store all the data we want to send in a given sample
+byte sample[12]; //byte array to store all the data we want to send in a given sample
 void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //since time is stored as uint32_t, we need 4 bytes for it in the array
   sample[0] = (t >> 24) & 255;

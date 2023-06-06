@@ -8,6 +8,8 @@ import io
 #graph
 import pyqtgraph as pg
 import numpy as np
+#stuff for byte conversion
+import struct
 #serial stuff
 ser = serial.Serial() #serial class
 ser.baudrate = 230400 #set the baudrade
@@ -152,11 +154,11 @@ def alignCheck(pcnt):
     #for keeping track of which pass we're on
     #ocnt = pcnt
     while pcnt > 0:
-        if ser.in_waiting > 32:
-            m = ser.read(32)
+        if ser.in_waiting > 24:
+            m = ser.read(24)
             print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
             passes.append(m)
-        pcnt = pcnt-1
+            pcnt = pcnt-1
 
     #just to make things look nicer/make the output clearer
     print("{c} passes of length {l}:".format(c=len(passes), l=len(passes[0])))
@@ -181,34 +183,58 @@ def timeAlignCheck(scnt):
             print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
             #add the data from the buffer into our run's data
             rData += m
-        rcnt = rcnt-1
+            scnt = scnt-1
 
     #look for the data we wanna see by running the pattern across it
     step = 0 #used to keep track of alignment, starts from zero
     found = False #as long as we haven't found it keep trying
     #variables to keep track of where we're looking
     fs = 0 #first start
-    fe = 3 #first end
-    ss = 8 #second start
-    se = 11 #second end
+    fe = fs+4 #first end
+    se = 12 #second end
+    ss = se-4 #second start
     #make sure to check for step of length equal to sample size
-    while (found == False) or (step > 11):
-        if (rcnt[fs:fe] == rcnt[ss:se]):
+    while (found == False) and (step < 24):
+        if (rData[fs:fe] == rData[ss:se] and rData[fs:fe]):
             print("Alignment found! Shifting start by {n} bytes...".format(n=step))
-                found = True #set found to true to get out of the loop
-                return step
+            print("Timestamp 1: {t1}".format(t1=rData[fs:fe]))
+            print("Timestamp 2: {t2}".format(t2=rData[ss:se]))
+            #snatch the example raw and env values
+            rawbytes = rData[fe:fe+2] 
+            envbytes = rData[fe+2:fe+4]
+            rawact = fixVals2(rawbytes)
+            envact = fixVals2(envbytes)
+            print("which means raw and env should be:")
+            print("Raw bytes: {rb}\t Raw actual: {ra}".format(rb=rawbytes, ra=rawact))
+            print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
+            #print("Raw: {r}".format(r=
+            found = True #set found to true to get out of the loop
+            return step
         else:
             #if the values don't match the expected pattern, keep going
+            print("Alignment not {n}".format(n=step))
+            print("- Timestamp 1: {t1}".format(t1=rData[fs:fe]))
+            print("- Timestamp 2: {t2}".format(t2=rData[ss:se]))
             step += 1
+            fs += 1
+            fe += 1
+            ss += 1
+            se += 1
     #print an error if we didn't find it
-    if step > 11:
+    if step > 24:
         print("Test Failed, Expected pattern not found :( :(")
+
+def fixVals(b1, b2):
+    return 255*b1 + b2
+def fixVals2(bvals):
+    return (bvals[0]<<8|bvals[1])
         
 #maybe run this on it's own thread?
 print("starting!")
 ser.open() #open it
 pawshake()
 #smartRead()
-#alignCheck(8)
+alignCheck(8)
 alignment = timeAlignCheck(8)
+print("Closing serial port!")
 ser.close()

@@ -45,7 +45,8 @@ void pawShake(){
 
 //in order to properly utilize serial write we need to convert our multi byte values
 //We know exactly how many bytes we need for any given sample, as each data type takes up a set amount of bytes
-byte sample[8]; //byte array to store all the data we want to send in a given sample
+//byte sample[8]; //byte array to store all the data we want to send in a given sample
+byte sample[12]; //byte array to store all the data we want to send in a given sample
 void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //since time is stored as uint32_t, we need 4 bytes for it in the array
   sample[0] = (t >> 24) & 255;
@@ -58,7 +59,14 @@ void byteSample(uint32_t t, uint16_t r, uint16_t e){
   //env is uint_16, we need 2 bytes for it in the array
   sample[6] = (e >> 8) & 255;
   sample[7] = e & 255;
+  //adding a duplicate tijme for identification potentially
+  //since it's only an additional 4 bytes I don't expect it to impact speed signifnicantly
+  sample[8] = sample[0];
+  sample[9] = sample[1];
+  sample[10] = sample[2];
+  sample[11] = sample[3];
 }
+
 
 //the most recent values taken
 //since these values should only be 0-4095(?) we don't needs more than two byte each
@@ -68,7 +76,7 @@ void loop() {
   //Serial.println("Hewwo! rawr!"); //coment out after testing
   static uint32_t last_check; //to keep track of the last time we printed data
   if(micros() - last_check >= sample_rate){
-    if (Serial.availableForWrite() > 12) { //since we're writing 12 bits to cereal (4b+4b+4b) we wanna make sure we have enough space to do so; helps with sync
+    if (Serial.availableForWrite() > 12) { //since we're writing 12 bits to cereal (4b+2b+2b+4b) we wanna make sure we have enough space to do so; helps with sync
       last_check = micros(); //update when we'll wanna print next
       //read in the analouge values
       //Raw: 0-4095
