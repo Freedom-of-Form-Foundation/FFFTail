@@ -10,10 +10,10 @@ import pyqtgraph as pg
 import numpy as np
 #stuff for byte conversion
 import struct
+
 #serial stuff
 ser = serial.Serial() #serial class
 ser.baudrate = 230400 #set the baudrade
-
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
 
 #ser.setDTR(False) #this line makes the serial data readablle
@@ -209,6 +209,7 @@ def timeAlignCheck(scnt):
             print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
             #print("Raw: {r}".format(r=
             found = True #set found to true to get out of the loop
+            #return the alignment if we find it
             return step
         else:
             #if the values don't match the expected pattern, keep going
@@ -223,6 +224,42 @@ def timeAlignCheck(scnt):
     #print an error if we didn't find it
     if step > 24:
         print("Test Failed, Expected pattern not found :( :(")
+        #return the step so we can use it to measure alignment
+
+#return numpoints number of samples by reading from serial
+def grabData(alignment, numpoints, packsize):
+    tbr = [] #array of data we are going to return
+    decodeBuffer = [] #for just storing a bunch of bytes before we turn it back into data we can use
+    passes = numpoints
+    while(passes > 0):
+        #see if we have enough bytes in waiting
+        if ser.in_waiting > (2 * packsize):
+            m = ser.read(packsize) #grab our bytes
+            decodeBuffer += m #add it to our temp buffer
+            passes -= 1
+
+    #since we want to iterate from the start of our alignment to the end our our decode buffer where i should be multiples of the size of our packets
+    for i in range(alignment, (len(decodeBuffer) - packsize), packsize):
+        #s = i+alignment #get the start of a data packet
+        e = i + packsize
+        #slice up our sample into the values we want
+        sample = decodebuffer[i:e]
+        #maybe redo these to be sample size independent when you get the chance
+        #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
+        timebytes = sample[0:4]
+        rawbytes = sample[4:6] 
+        envbytes = sample[6:8]
+        #do the math and get our data
+        timeact = fixVals2(timebytes)
+        rawact = fixVals2(rawbytes)
+        envact = fixVals2(envbytes)
+
+        #add our sample to what we want to return
+        tbr.append([timeact, rawact, envact])
+
+    #return our values
+    return tbr
+            
 
 def fixVals(b1, b2):
     return 255*b1 + b2

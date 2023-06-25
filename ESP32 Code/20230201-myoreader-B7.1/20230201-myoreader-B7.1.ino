@@ -86,9 +86,10 @@ void loop() {
       //convert everything to proper bytes for sedning
       byteSample(last_check, nraw, nenv);
       //write to serial
-      Serial.write(last_check);
-      Serial.write(nraw);
-      Serial.write(nenv);
+      //Serial.write(last_check);
+      //Serial.write(nraw);
+      //Serial.write(nenv);
+      Serial.write(sample, sizeof(sample));
     }
   }
 }
