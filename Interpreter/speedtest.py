@@ -1,4 +1,7 @@
 #T&R 2023 (@Mecknavorz)
+#made for the FFF enhanced tail project.
+#used for testing varius aspects around how fast we can send data over serial
+
 #important stuff
 import sys
 import time
@@ -12,8 +15,8 @@ import numpy as np
 import struct
 
 #serial stuff
-ser = serial.Serial() #serial class
-ser.baudrate = 230400 #set the baudrade
+ser = serial.Serial(baudrate=230400) #serial class
+#ser.baudrate = 230400 #set the baudrade
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
 
 #ser.setDTR(False) #this line makes the serial data readablle
@@ -227,30 +230,32 @@ def timeAlignCheck(scnt):
         #return the step so we can use it to measure alignment
 
 #return numpoints number of samples by reading from serial
-def grabData(alignment, numpoints, packsize):
-    tbr = [] #array of data we are going to return
-    decodeBuffer = [] #for just storing a bunch of bytes before we turn it back into data we can use
-    passes = numpoints
-    while(passes > 0):
+def grabData(passes, packsize):
+    buff = [] #for just storing a bunch of bytes before we turn it back into data we can use
+    while(passes > -1):
         #see if we have enough bytes in waiting
-        if ser.in_waiting > (2 * packsize):
+        if ser.in_waiting > packsize:
             m = ser.read(packsize) #grab our bytes
-            decodeBuffer += m #add it to our temp buffer
+            buff += m #add it to our temp buffer
             passes -= 1
+    #print("Completed passes... Decoding")
+    return buff
 
+def grabDecode(todecode, alignment, packsize):
+    tbr = []
     #since we want to iterate from the start of our alignment to the end our our decode buffer where i should be multiples of the size of our packets
-    for i in range(alignment, (len(decodeBuffer) - packsize), packsize):
+    for i in range(alignment, (len(todecode) - packsize), packsize):
         #s = i+alignment #get the start of a data packet
         e = i + packsize
         #slice up our sample into the values we want
-        sample = decodebuffer[i:e]
+        sample = todecode[i:e]
         #maybe redo these to be sample size independent when you get the chance
         #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
         timebytes = sample[0:4]
         rawbytes = sample[4:6] 
         envbytes = sample[6:8]
         #do the math and get our data
-        timeact = fixVals2(timebytes)
+        timeact = fixVals4(timebytes)
         rawact = fixVals2(rawbytes)
         envact = fixVals2(envbytes)
 
@@ -260,11 +265,12 @@ def grabData(alignment, numpoints, packsize):
     #return our values
     return tbr
             
-
-def fixVals(b1, b2):
-    return 255*b1 + b2
+#used for 2 byte values
 def fixVals2(bvals):
     return (bvals[0]<<8|bvals[1])
+#used for 4 byte values
+def fixVals4(bvals):
+    return (bvals[0]<<24|bvals[1]<<16|bvals[2]<<8|bvals[3])
         
 #maybe run this on it's own thread?
 print("starting!")
@@ -273,5 +279,17 @@ pawshake()
 #smartRead()
 alignCheck(8)
 alignment = timeAlignCheck(8)
+print("about to grab!")
+start = time.time()
+bytedata = grabData(2048, 12)
+end = time.time()
+total = end - start
+data = grabDecode(bytedata, alignment, 12)
+expected = (data[-1][0] - data[0][0]) / (10**6) #need to do a microsecond to second conversion
+print("Here's the data: {c} samples grabbed in {s} seconds".format(c=len(data), s=total))
+print("python time vs sample time: ")
+print("p: {t1}".format(t1=total))
+print("s: {t2}".format(t2=expected))
+print("data can be accessed as 'data'")
 print("Closing serial port!")
 ser.close()
