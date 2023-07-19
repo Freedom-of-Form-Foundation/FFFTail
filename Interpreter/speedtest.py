@@ -9,8 +9,11 @@ import time
 import serial
 import io
 #graph
-import pyqtgraph as pg
+#import pyqtgraph as pg
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib import style
 #stuff for byte conversion
 import struct
 
@@ -271,14 +274,77 @@ def fixVals2(bvals):
 #used for 4 byte values
 def fixVals4(bvals):
     return (bvals[0]<<24|bvals[1]<<16|bvals[2]<<8|bvals[3])
-        
-#maybe run this on it's own thread?
+
+
+#graph stuff
+style.use('bmh')
+fig, ax1 = plt.subplots()
+ax1.set_xlim(0, 5120, auto=False) #This should limit the size of our graph to be ~5 seconds of samples, or maybe 2.5 secounds since of the time bug
+#ax1.set_xticks(ticks, labels=None, *, minor=False, **kwargs) #used for determining spacing of the labels on the x axis
+
+#data storage for our graphs
+#might merge this with the buffer eventually, but for now we're keeping it seprate
+xs = [] #time
+ys = [] #raw values
+ys2 = []
+#sample = how many samples we want to grab
+#alignment = how we need to adjust the incoming bytes
+#samplesize = size of samples in bytes
+def graphTest(samples, alignment, samplesize):
+    bytedata = grabData(samples, samplesize)
+
+    '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
+    #convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
+    #we instead get an output of an array with three lists containing all the data from that pass
+    #this makes the code to actually put the data to our graph simpler
+    #data = np.transpose(np.array(grabDecode(bytedata, alignment, samplesize)))
+    #then convert it back to a list and add it to the lists
+    #xs.append(np.ndarray.tolist(data[0])) #our time data
+    #ys.append(np.ndarray.tolist(data[1])) #our raw data
+    #add a env
+    '''a bit sloppy but should work for testing purposes'''
+    data = grabDecode(bytedata, alignment, samplesize)
+    for sample in data:
+        xs.append(sample[0])
+        ys.append(sample[1])
+        ys2.append(sample[2])
+    
+    #should keep us to about 5 seconds of data at a time
+    #xs = [:-5120]
+    #ys = [:-5120]
+
+    #draw the graph
+    ax1.clear()
+    ax1.plot(xs, ys, label='Raw')
+    ax1.plot(xs, ys2, label='Env')
+
+    #formatting stuff
+    plt.title("Live graphing from ESP32")
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Raw and Raw')
+    ax1.legend() #to help differentiate the values being graphed
+    ax1.grid(True)
+    print("graph Complete!")
+
+#-------------------------        
+# ACTUALLY RUN EVERYTHING
+#-------------------------
 print("starting!")
 ser.open() #open it
 pawshake()
 #smartRead()
 alignCheck(8)
 alignment = timeAlignCheck(8)
+stime = time.time()
+'''attempt at live graphing
+while(time.time() - stime > 10):
+    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
+    plt.show
+    '''
+#non-live graphing
+graphTest(2048, alignment, 12)
+plt.show()
+'''
 print("about to grab!")
 start = time.time()
 bytedata = grabData(2048, 12)
@@ -290,6 +356,7 @@ print("Here's the data: {c} samples grabbed in {s} seconds".format(c=len(data), 
 print("python time vs sample time: ")
 print("p: {t1}".format(t1=total))
 print("s: {t2}".format(t2=expected))
-print("data can be accessed as 'data'")
+print("data can be accessed as 'data'")'''
+
 print("Closing serial port!")
 ser.close()
