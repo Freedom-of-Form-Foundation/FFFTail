@@ -290,7 +290,7 @@ ys2 = []
 #sample = how many samples we want to grab
 #alignment = how we need to adjust the incoming bytes
 #samplesize = size of samples in bytes
-def graphTest(samples, alignment, samplesize):
+def graphTest(samples, alignment, samplesize, dud):
     bytedata = grabData(samples, samplesize)
 
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
@@ -324,7 +324,7 @@ def graphTest(samples, alignment, samplesize):
     ax1.set_ylabel('Raw and Raw')
     ax1.legend() #to help differentiate the values being graphed
     ax1.grid(True)
-    print("graph Complete!")
+    #print("graph Complete!")
 
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
@@ -336,11 +336,12 @@ pawshake()
 alignCheck(8)
 alignment = timeAlignCheck(8)
 stime = time.time()
-'''attempt at live graphing
-while(time.time() - stime > 10):
-    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
-    plt.show
-    '''
+'''attempt at live graphing'''
+#test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
+#plt.show()
+
+
+'''
 #non-live graphing
 graphTest(2048, alignment, 12)
 plt.show()
@@ -356,7 +357,7 @@ print("Here's the data: {c} samples grabbed in {s} seconds".format(c=len(data), 
 print("python time vs sample time: ")
 print("p: {t1}".format(t1=total))
 print("s: {t2}".format(t2=expected))
-print("data can be accessed as 'data'")'''
+print("data can be accessed as 'data'")
 
 print("Closing serial port!")
 ser.close()
