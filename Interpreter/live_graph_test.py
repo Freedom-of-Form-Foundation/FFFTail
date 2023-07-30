@@ -2,7 +2,7 @@
 #equivalent of coding scratch paper, various bits of code from matplotlibs docs
 #Testing various aspects of the animation library
 
-'''
+
 import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -23,7 +23,7 @@ def animate(i, xs, ys):
     rand_y = random.random()
 
     #add x and y to lists
-    xs.append(dt.datetime.now().strftime('%S.%f'))
+    xs.append(dt.datetime.now())#.strftime('%S.%f'))
     ys.append(rand_y)
 
     #limit x and y lists to 20 items
@@ -44,11 +44,44 @@ def animate(i, xs, ys):
     plt.ylabel('Value')
     #plt.locator_params(axis='x', nbins=10) #limit the number of points on the x axis
 
+    #formatting code
+    #we want to make sure our data is of a minimul length to divide our chart easily
+    x_length = len(xs)
+
+    if(x_length > 8):
+        ax.set(yticklabels=[])
+        #get the positions we need for spacing ticks evently
+        ax.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+        ax.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+
+'''def getNiceTicks(data, ticks):
+    length = len(data)
+    step = int(length / ticks)
+    last_tick = 0
+    vals = []
+    labels = []
+    
+    for i in range(ticks):
+        if last_tick + step < len(data):
+            
+        
+    return [vals, labels]
+'''
 #set up plot to call animate() function periodically
-ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=100) #, blit=True, save_count=50)
+ani = animation.FuncAnimation(fig, animate, fargs=(xs, ys), interval=33)#, blit=True, save_count=50)
 plt.show()
 
+# To save the animation, use e.g.
+#
+ani.save("test.mp4")
+#
+# or
+#
+# writer = animation.FFMpegWriter(
+#     fps=15, metadata=dict(artist='Me'), bitrate=1800)
+# ani.save("movie.mp4", writer=writer)
 
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -83,7 +116,7 @@ ani = animation.FuncAnimation(
 # ani.save("movie.mp4", writer=writer)
 
 plt.show()
-'''
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -129,3 +162,4 @@ ani = animation.FuncAnimation(
     fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
 
 plt.show()
+'''
