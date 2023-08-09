@@ -1,7 +1,7 @@
 #live_graph_test
 #equivalent of coding scratch paper, various bits of code from matplotlibs docs
 #Testing various aspects of the animation library
-
+import time
 
 import datetime as dt
 import matplotlib.pyplot as plt
@@ -16,11 +16,22 @@ background = fig.canvas.copy_from_bbox(ax.bbox)
 xs = []
 ys = []
 
+#return a random number but on a delay
+#wanted totest if delay between being ablr to grab the number and the animation refresh rate would do anything
+def rand_delay():
+    end = time.time() + 1
+    y = 0
+    while end > time.time():
+        y = random.random()
+    return y
+        
+    
+
 #this function is called periodically from FuncAnimation
 def animate(i, xs, ys):
 
     #read temperature (Celsius) from TMP102
-    rand_y = random.random()
+    rand_y = rand_delay()
 
     #add x and y to lists
     xs.append(dt.datetime.now())#.strftime('%S.%f'))

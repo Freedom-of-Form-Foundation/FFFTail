@@ -233,21 +233,26 @@ def timeAlignCheck(scnt):
         #return the step so we can use it to measure alignment
 
 #return numpoints number of samples by reading from serial
+''' buff and m keep getting one entry longer every call at a time and I'm not sure why'''
 def grabData(passes, packsize):
     buff = [] #for just storing a bunch of bytes before we turn it back into data we can use
     while(passes > -1):
+        m = []
         #see if we have enough bytes in waiting
         if ser.in_waiting > packsize:
             m = ser.read(packsize) #grab our bytes
+            print("beepis... {n}".format(n=m))
             buff += m #add it to our temp buffer
             passes -= 1
     #print("Completed passes... Decoding")
+    #buff = buff[-60:] #limit the size of the buffer
     return buff
 
 def grabDecode(todecode, alignment, packsize):
     tbr = []
     #since we want to iterate from the start of our alignment to the end our our decode buffer where i should be multiples of the size of our packets
-    for i in range(alignment, (len(todecode) - packsize), packsize):
+    '''keep getting an error about range arg 3 being 0 here'''
+    for i in range(alignment, (len(todecode) - packsize), packsize): 
         #s = i+alignment #get the start of a data packet
         e = i + packsize
         #slice up our sample into the values we want
@@ -292,7 +297,7 @@ ys2 = []
 #samplesize = size of samples in bytes
 def graphTest(samples, alignment, samplesize, dud):
     bytedata = grabData(samples, samplesize)
-
+    print("data grabbed: {d}".format(d=bytedata))
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
     #convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
     #we instead get an output of an array with three lists containing all the data from that pass
@@ -303,7 +308,8 @@ def graphTest(samples, alignment, samplesize, dud):
     #ys.append(np.ndarray.tolist(data[1])) #our raw data
     #add a env
     '''a bit sloppy but should work for testing purposes'''
-    data = grabDecode(bytedata, alignment, samplesize)
+    data = grabDecode(bytedata, alignment, 12) # hard coded the 12 here because of an error where it was zero for some reason
+    print ("sample: {s}".format(s=data))
     for sample in data:
         xs.append(sample[0])
         ys.append(sample[1])
@@ -324,6 +330,17 @@ def graphTest(samples, alignment, samplesize, dud):
     ax1.set_ylabel('Raw and Raw')
     ax1.legend() #to help differentiate the values being graphed
     ax1.grid(True)
+    
+    
+    #space out the labels on the x data
+    #we want to make sure our data is of a minimul length to divide our chart easily
+    x_length = len(xs)
+
+    if(x_length > 8):
+        ax.set(yticklabels=[])
+        #get the positions we need for spacing ticks evently
+        ax.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+        ax.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
     #print("graph Complete!")
 
 #-------------------------        
@@ -335,17 +352,18 @@ pawshake()
 #smartRead()
 alignCheck(8)
 alignment = timeAlignCheck(8)
-stime = time.time()
+etime = time.time() + 30
 '''attempt at live graphing'''
-#test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
-#plt.show()
+while time.time() < etime:
+    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
+    plt.show()
 
 
 '''
 #non-live graphing
 graphTest(2048, alignment, 12)
 plt.show()
-'''
+
 print("about to grab!")
 start = time.time()
 bytedata = grabData(2048, 12)
@@ -358,6 +376,6 @@ print("python time vs sample time: ")
 print("p: {t1}".format(t1=total))
 print("s: {t2}".format(t2=expected))
 print("data can be accessed as 'data'")
-
+'''
 print("Closing serial port!")
 ser.close()
