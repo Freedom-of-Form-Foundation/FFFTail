@@ -234,16 +234,17 @@ def timeAlignCheck(scnt):
 
 #return numpoints number of samples by reading from serial
 ''' buff and m keep getting one entry longer every call at a time and I'm not sure why'''
+#likely has to do with the passes code calling it
 def grabData(passes, packsize):
     buff = [] #for just storing a bunch of bytes before we turn it back into data we can use
-    while(passes > -1):
+    while(passes > 0):
         m = []
         #see if we have enough bytes in waiting
         if ser.in_waiting > packsize:
             m = ser.read(packsize) #grab our bytes
             print("beepis... {n}".format(n=m))
             buff += m #add it to our temp buffer
-            passes -= 1
+            passes = passes - 1
     #print("Completed passes... Decoding")
     #buff = buff[-60:] #limit the size of the buffer
     return buff
