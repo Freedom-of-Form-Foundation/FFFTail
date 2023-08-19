@@ -273,6 +273,15 @@ def grabDecode(todecode, alignment, packsize):
 
     #return our values
     return tbr
+
+#trying to make a v simplified grab data function
+def grabData2(packsize):
+    #if there's enough data in the serial buffer for it to be a sample
+    if ser.in_waiting > packsize:
+        #return the sample
+        return ser.read(packsize)
+    #how to handle conditions where there isn't enough data
+    #wait? recusion?
             
 #used for 2 byte values
 def fixVals2(bvals):
