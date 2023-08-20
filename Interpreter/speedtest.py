@@ -18,13 +18,13 @@ from matplotlib import style
 import struct
 
 #serial stuff
-ser = serial.Serial(baudrate=230400) #serial class
+ser = serial.Serial(baudrate=230400, timeout=None) #serial class
+#ser.timeout = None #if it's at None it'll wait untill it has enough bites to return
 #ser.baudrate = 230400 #set the baudrade
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
-
 #ser.setDTR(False) #this line makes the serial data readablle
 #ser.setRTS(False) #this line makes the serial data readablle
-#ser.timeout = 10 #safety timeout in seconds
+
 
 
 #read 1 input line from the serial
@@ -242,7 +242,7 @@ def grabData(passes, packsize):
         #see if we have enough bytes in waiting
         if ser.in_waiting > packsize:
             m = ser.read(packsize) #grab our bytes
-            print("beepis... {n}".format(n=m))
+            #print("beepis... {n}".format(n=m))
             buff += m #add it to our temp buffer
             passes = passes - 1
     #print("Completed passes... Decoding")
@@ -277,9 +277,11 @@ def grabDecode(todecode, alignment, packsize):
 #trying to make a v simplified grab data function
 def grabData2(packsize):
     #if there's enough data in the serial buffer for it to be a sample
-    if ser.in_waiting > packsize:
+    if ser.in_waiting % packsize == 0:
         #return the sample
-        return ser.read(packsize)
+        m = ser.read(packsize)
+        #print("gd2 bytes: {b}".format(b=m))
+        return m
     #how to handle conditions where there isn't enough data
     #wait? recusion?
             
@@ -305,9 +307,11 @@ ys2 = []
 #sample = how many samples we want to grab
 #alignment = how we need to adjust the incoming bytes
 #samplesize = size of samples in bytes
-def graphTest(samples, alignment, samplesize, dud):
+def graphTest(i, samples, alignment, samplesize):
+    
+    #bytedata = grabData2(samplesize)
     bytedata = grabData(samples, samplesize)
-    print("data grabbed: {d}".format(d=bytedata))
+    #print("data grabbed: {d}".format(d=bytedata))
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
     #convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
     #we instead get an output of an array with three lists containing all the data from that pass
@@ -319,7 +323,7 @@ def graphTest(samples, alignment, samplesize, dud):
     #add a env
     '''a bit sloppy but should work for testing purposes'''
     data = grabDecode(bytedata, alignment, 12) # hard coded the 12 here because of an error where it was zero for some reason
-    print ("sample: {s}".format(s=data))
+    #print ("sample: {s}".format(s=data))
     for sample in data:
         xs.append(sample[0])
         ys.append(sample[1])
@@ -341,16 +345,16 @@ def graphTest(samples, alignment, samplesize, dud):
     ax1.legend() #to help differentiate the values being graphed
     ax1.grid(True)
     
-    
+    #WRITE A NICER FUNCTION TO DO THIS PLEASE
     #space out the labels on the x data
     #we want to make sure our data is of a minimul length to divide our chart easily
     x_length = len(xs)
 
     if(x_length > 8):
-        ax.set(yticklabels=[])
+        ax1.set(yticklabels=[])
         #get the positions we need for spacing ticks evently
-        ax.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-        ax.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
     #print("graph Complete!")
 
 #-------------------------        
@@ -365,7 +369,7 @@ alignment = timeAlignCheck(8)
 etime = time.time() + 30
 '''attempt at live graphing'''
 while time.time() < etime:
-    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 100)
+    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
     plt.show()
 
 
