@@ -99,6 +99,7 @@ def roughBuff():
     #print("ran rough buff at: {:f}".format(time.time()))
     lastcall = time.time()
 
+'''this function works'''
 #function we should call to try and make things in sync
 #calling it pawshake instead of handshake because it's funny and furry
 def pawshake():
@@ -153,6 +154,7 @@ def smartRead():
     print("Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t, ra=r, en=e))
     print("Decoded - Time: {ti} \nRaw: {ra} \nEnv: {en}".format(ti=t.decode('utf-32'), ra=r.decode('utf-16'), en=e.decode('utf-16')))
 
+
 #grab multiple same length samples and check to see if they remain aligned each time
 passes = [] #for storing data
 def alignCheck(pcnt):
@@ -175,6 +177,7 @@ def alignCheck(pcnt):
             toPrint += "{b}\t".format(b=passes[j][i])
         print(toPrint)
 
+'''this function works'''
 #variation of align checker for use with SerialSpeedTest-USB2
 #in short: it looks for this pattern: [prev entry], time[4 bytes], raw [2 bytes], env [2 bytes], time [4 bytes], [new entry]
 #each sample is expected to be 12 bytes, with the 4 at the start and end being thwe time of the sample
@@ -182,6 +185,7 @@ def alignCheck(pcnt):
 def timeAlignCheck(scnt):
     print("Performing verification via time alignment in samples...")
     rData = []
+    
     #collect data
     while scnt > 0:
         if ser.in_waiting > 24:
@@ -194,29 +198,35 @@ def timeAlignCheck(scnt):
     #look for the data we wanna see by running the pattern across it
     step = 0 #used to keep track of alignment, starts from zero
     found = False #as long as we haven't found it keep trying
+    
     #variables to keep track of where we're looking
     fs = 0 #first start
     fe = fs+4 #first end
     se = 12 #second end
     ss = se-4 #second start
+    
     #make sure to check for step of length equal to sample size
     while (found == False) and (step < 24):
         if (rData[fs:fe] == rData[ss:se] and rData[fs:fe]):
             print("Alignment found! Shifting start by {n} bytes...".format(n=step))
             print("Timestamp 1: {t1}".format(t1=rData[fs:fe]))
             print("Timestamp 2: {t2}".format(t2=rData[ss:se]))
+            
             #snatch the example raw and env values
             rawbytes = rData[fe:fe+2] 
             envbytes = rData[fe+2:fe+4]
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
+            
             print("which means raw and env should be:")
             print("Raw bytes: {rb}\t Raw actual: {ra}".format(rb=rawbytes, ra=rawact))
             print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
             #print("Raw: {r}".format(r=
             found = True #set found to true to get out of the loop
+            
             #return the alignment if we find it
             return step
+        
         else:
             #if the values don't match the expected pattern, keep going
             print("Alignment not {n}".format(n=step))
@@ -227,6 +237,7 @@ def timeAlignCheck(scnt):
             fe += 1
             ss += 1
             se += 1
+            
     #print an error if we didn't find it
     if step > 24:
         print("Test Failed, Expected pattern not found :( :(")
@@ -273,17 +284,6 @@ def grabDecode(todecode, alignment, packsize):
 
     #return our values
     return tbr
-
-#trying to make a v simplified grab data function
-def grabData2(packsize):
-    #if there's enough data in the serial buffer for it to be a sample
-    if ser.in_waiting % packsize == 0:
-        #return the sample
-        m = ser.read(packsize)
-        #print("gd2 bytes: {b}".format(b=m))
-        return m
-    #how to handle conditions where there isn't enough data
-    #wait? recusion?
             
 #used for 2 byte values
 def fixVals2(bvals):
@@ -308,8 +308,6 @@ ys2 = []
 #alignment = how we need to adjust the incoming bytes
 #samplesize = size of samples in bytes
 def graphTest(i, samples, alignment, samplesize):
-    
-    #bytedata = grabData2(samplesize)
     bytedata = grabData(samples, samplesize)
     #print("data grabbed: {d}".format(d=bytedata))
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
@@ -345,17 +343,31 @@ def graphTest(i, samples, alignment, samplesize):
     ax1.legend() #to help differentiate the values being graphed
     ax1.grid(True)
     
-    #WRITE A NICER FUNCTION TO DO THIS PLEASE
     #space out the labels on the x data
-    #we want to make sure our data is of a minimul length to divide our chart easily
-    x_length = len(xs)
+    #get the positions we need for spacing ticks evently
+    nticks = niceTicks(xs)
+    tickvals = nticks[0]
+    labels = nTicks[1]
 
-    if(x_length > 8):
+    ax1.set(yticklabels=[])
+    ax1.set_xticks(tickvals) #where to place tick marks
+    ax1.set_xticklabels(labels) #labels
+    #print("graph Complete!")
+
+def niceTicks(data):
+    datalen = len(data) #get the length of our data for easy math
+    tickvals = []
+    labels = []
+    if(datalen > 8):
         ax1.set(yticklabels=[])
         #get the positions we need for spacing ticks evently
-        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
-    #print("graph Complete!")
+        tickvals = [data[0], xs[(datalen/2)], data[-1]] #where to place tick marks
+        #add labels we want to use instead of just the numerical values
+        for v in tickvals:
+            #divide by 1000000 to convert from microseconds to seconds for ease of reading
+            labels += str(v/1000000)
+            
+    return [tickvals, lavels]
 
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
