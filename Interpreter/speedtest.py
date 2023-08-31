@@ -304,6 +304,7 @@ ax1.set_xlim(0, 5120, auto=False) #This should limit the size of our graph to be
 xs = [] #time
 ys = [] #raw values
 ys2 = []
+
 #sample = how many samples we want to grab
 #alignment = how we need to adjust the incoming bytes
 #samplesize = size of samples in bytes
@@ -322,14 +323,17 @@ def graphTest(i, samples, alignment, samplesize):
     '''a bit sloppy but should work for testing purposes'''
     data = grabDecode(bytedata, alignment, 12) # hard coded the 12 here because of an error where it was zero for some reason
     #print ("sample: {s}".format(s=data))
+    
     for sample in data:
+        global xs, ys, ys2
         xs.append(sample[0])
         ys.append(sample[1])
         ys2.append(sample[2])
-    
-    #should keep us to about 5 seconds of data at a time
-    #xs = [:-5120]
-    #ys = [:-5120]
+        
+    #limit the arrays size
+    xs = xs[-5096:]
+    ys = ys[-5096:]
+    ys2 = ys2[-5096:]
 
     #draw the graph
     ax1.clear()
@@ -345,14 +349,30 @@ def graphTest(i, samples, alignment, samplesize):
     
     #space out the labels on the x data
     #get the positions we need for spacing ticks evently
-    nticks = niceTicks(xs)
-    tickvals = nticks[0]
-    labels = nTicks[1]
+    
+    tickvals, labels = niceTicks(xs)
+    #tickvals = nticks[0]
+    #labels = nticks[1]
 
     ax1.set(yticklabels=[])
     ax1.set_xticks(tickvals) #where to place tick marks
     ax1.set_xticklabels(labels) #labels
     #print("graph Complete!")
+    
+    '''
+    #had to use the old function, need to double check why niceTicks doesn't work
+    #want to get rest of set up working first
+    x_length = len(xs)
+
+    if(x_length > 8):
+        ax1.set(yticklabels=[])
+        ax1.set(yticklabels=[])
+        #get the positions we need for spacing ticks evently
+        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+    '''
 
 def niceTicks(data):
     datalen = len(data) #get the length of our data for easy math
@@ -361,13 +381,13 @@ def niceTicks(data):
     if(datalen > 8):
         ax1.set(yticklabels=[])
         #get the positions we need for spacing ticks evently
-        tickvals = [data[0], xs[(datalen/2)], data[-1]] #where to place tick marks
+        tickvals = [data[0], xs[int(datalen/2)], data[-1]] #where to place tick marks
         #add labels we want to use instead of just the numerical values
         for v in tickvals:
             #divide by 1000000 to convert from microseconds to seconds for ease of reading
-            labels += str(v/1000000)
-            
-    return [tickvals, lavels]
+            #since the time is running 2x speed for ??? reasons rn, switched to 500000
+            labels.append(str(v/500000))
+    return tickvals, labels
 
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
@@ -378,11 +398,10 @@ pawshake()
 #smartRead()
 alignCheck(8)
 alignment = timeAlignCheck(8)
-etime = time.time() + 30
+#etime = time.time() + 30
 '''attempt at live graphing'''
-while time.time() < etime:
-    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
-    plt.show()
+test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
+plt.show()
 
 
 '''
