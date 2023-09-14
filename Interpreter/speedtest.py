@@ -373,6 +373,14 @@ def graphTest(i, samples, alignment, samplesize):
         ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
         ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
     '''
+    #test to make sure that there aren't non-distinct x values which will mess up the graph
+    if len(xs) != len(set(xs)):
+        print("Uh oh! there are duplicates!")
+        print(xs)
+        #things to try:
+        # - replacecurrent scroll method w/some kind of push/pop to see if that makes it less sloppy than append
+        # - figure out some way to check for and remove duplicates
+        # - figure out how to copy the xs list when it starts breaking so we cna analyize it under some other tools
 
 def niceTicks(data):
     datalen = len(data) #get the length of our data for easy math
