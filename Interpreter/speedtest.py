@@ -378,9 +378,18 @@ def graphTest(i, samples, alignment, samplesize):
         print("Uh oh! there are duplicates!")
         print(xs)
         #things to try:
+        # - CHECK ALIGNMENT!!!!!!
+        #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
+        #if the alignment has changed; Update it so we won't get weird errors
+        alignment = timeAlignCheck(samplesize)
+        #remove the last [samples] entries from the array) - need to test what value to remove works best
+        nXsLen = 5096-(samples*samplesize)
+        xs = xs[nXsLen]
+        '''NOTE: Aligment does seem to be shifting once duplicates show up; this could be the cause of that; or the overflow could be unrelated but seems unlikely'''
         # - replacecurrent scroll method w/some kind of push/pop to see if that makes it less sloppy than append
         # - figure out some way to check for and remove duplicates
         # - figure out how to copy the xs list when it starts breaking so we cna analyize it under some other tools
+        
 
 def niceTicks(data):
     datalen = len(data) #get the length of our data for easy math
@@ -404,7 +413,7 @@ print("starting!")
 ser.open() #open it
 pawshake()
 #smartRead()
-alignCheck(8)
+#alignCheck(8)
 alignment = timeAlignCheck(8)
 #etime = time.time() + 30
 '''attempt at live graphing'''
