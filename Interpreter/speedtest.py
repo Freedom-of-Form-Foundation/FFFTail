@@ -19,8 +19,7 @@ import struct
 
 #serial stuff
 ser = serial.Serial(baudrate=230400, timeout=None) #serial class
-#ser.timeout = None #if it's at None it'll wait untill it has enough bites to return
-#ser.baudrate = 230400 #set the baudrade
+#ser.set_buffer_size(rx_size = 12800, tx_size = 12800) <= try messing around with buffer size
 ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
 #ser.setDTR(False) #this line makes the serial data readablle
 #ser.setRTS(False) #this line makes the serial data readablle
@@ -385,6 +384,8 @@ def graphTest(i, samples, alignment, samplesize):
         #remove the last [samples] entries from the array) - need to test what value to remove works best
         nXsLen = 5096-(samples*samplesize)
         xs = xs[nXsLen]
+        #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
+        ser.reset_input_buffer()
         '''NOTE: Aligment does seem to be shifting once duplicates show up; this could be the cause of that; or the overflow could be unrelated but seems unlikely'''
         # - replacecurrent scroll method w/some kind of push/pop to see if that makes it less sloppy than append
         # - figure out some way to check for and remove duplicates
