@@ -137,7 +137,7 @@ def smartRead():
     
     #essentially check to make sure we have completed messages in there
     #need to implement some way of making sure we're always looking for the right amount of bytes
-    if(ser.in_waiting % 8 == 0):
+    if(ser.in_waiting % 12 == 0):
         #read one whole output
         m = ser.read(32)
         #need to decide if this is how I actually want to return values
@@ -181,15 +181,15 @@ def alignCheck(pcnt):
 #in short: it looks for this pattern: [prev entry], time[4 bytes], raw [2 bytes], env [2 bytes], time [4 bytes], [new entry]
 #each sample is expected to be 12 bytes, with the 4 at the start and end being thwe time of the sample
 #may change the pattern down the line, or for the final version SO BE AWARE
-def timeAlignCheck(scnt):
-    print("Performing verification via time alignment in samples...")
+def timeAlignCheck(scnt, v):
+    if v: print("Performing verification via time alignment in samples...")
     rData = []
     
     #collect data
     while scnt > 0:
         if ser.in_waiting > 24:
             m = ser.read(24)
-            print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
+            if v: print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
             #add the data from the buffer into our run's data
             rData += m
             scnt = scnt-1
@@ -208,18 +208,20 @@ def timeAlignCheck(scnt):
     while (found == False) and (step < 24):
         if (rData[fs:fe] == rData[ss:se] and rData[fs:fe]):
             print("Alignment found! Shifting start by {n} bytes...".format(n=step))
-            print("Timestamp 1: {t1}".format(t1=rData[fs:fe]))
-            print("Timestamp 2: {t2}".format(t2=rData[ss:se]))
+            if v:
+                print("Timestamp 1: {t1}".format(t1=rData[fs:fe]))
+                print("Timestamp 2: {t2}".format(t2=rData[ss:se]))
             
             #snatch the example raw and env values
             rawbytes = rData[fe:fe+2] 
             envbytes = rData[fe+2:fe+4]
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
-            
-            print("which means raw and env should be:")
-            print("Raw bytes: {rb}\t Raw actual: {ra}".format(rb=rawbytes, ra=rawact))
-            print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
+
+            if v: 
+                print("which means raw and env should be:")
+                print("Raw bytes: {rb}\t Raw actual: {ra}".format(rb=rawbytes, ra=rawact))
+                print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
             #print("Raw: {r}".format(r=
             found = True #set found to true to get out of the loop
             
@@ -228,9 +230,10 @@ def timeAlignCheck(scnt):
         
         else:
             #if the values don't match the expected pattern, keep going
-            print("Alignment not {n}".format(n=step))
-            print("- Timestamp 1: {t1}".format(t1=rData[fs:fe]))
-            print("- Timestamp 2: {t2}".format(t2=rData[ss:se]))
+            if v: 
+                print("Alignment not {n}".format(n=step))
+                print("- Timestamp 1: {t1}".format(t1=rData[fs:fe]))
+                print("- Timestamp 2: {t2}".format(t2=rData[ss:se]))
             step += 1
             fs += 1
             fe += 1
@@ -255,6 +258,8 @@ def grabData(passes, packsize):
             #print("beepis... {n}".format(n=m))
             buff += m #add it to our temp buffer
             passes = passes - 1
+        #elif ser.in_waiting == 65536:
+            #ser.reset_input_buffer()
     #print("Completed passes... Decoding")
     #buff = buff[-60:] #limit the size of the buffer
     return buff
@@ -321,7 +326,7 @@ def graphTest(i, samples, alignment, samplesize):
     #add a env
     '''a bit sloppy but should work for testing purposes'''
     data = grabDecode(bytedata, alignment, 12) # hard coded the 12 here because of an error where it was zero for some reason
-    #print ("sample: {s}".format(s=data))
+    lastadd = len(data)
     
     for sample in data:
         global xs, ys, ys2
@@ -330,9 +335,9 @@ def graphTest(i, samples, alignment, samplesize):
         ys2.append(sample[2])
         
     #limit the arrays size
-    xs = xs[-5096:]
-    ys = ys[-5096:]
-    ys2 = ys2[-5096:]
+    xs = xs[-5120:]
+    ys = ys[-5120:]
+    ys2 = ys2[-5120:]
 
     #draw the graph
     ax1.clear()
@@ -375,21 +380,26 @@ def graphTest(i, samples, alignment, samplesize):
     #test to make sure that there aren't non-distinct x values which will mess up the graph
     if len(xs) != len(set(xs)):
         print("Uh oh! there are duplicates!")
-        print(xs)
+        print(ser.in_waiting)
+        #print(xs)
+        #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
+        ser.flush()
         #things to try:
         # - CHECK ALIGNMENT!!!!!!
         #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
         #if the alignment has changed; Update it so we won't get weird errors
-        alignment = timeAlignCheck(samplesize)
+        alignment = timeAlignCheck(samplesize, False)
+        '''changing the time array crashes the graphing'''
         #remove the last [samples] entries from the array) - need to test what value to remove works best
-        nXsLen = 5096-(samples*samplesize)
-        xs = xs[nXsLen]
-        #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
-        ser.reset_input_buffer()
-        '''NOTE: Aligment does seem to be shifting once duplicates show up; this could be the cause of that; or the overflow could be unrelated but seems unlikely'''
-        # - replacecurrent scroll method w/some kind of push/pop to see if that makes it less sloppy than append
-        # - figure out some way to check for and remove duplicates
-        # - figure out how to copy the xs list when it starts breaking so we cna analyize it under some other tools
+        nXsLen = 5119 - lastadd#(2*(samples*samplesize))
+        xs = xs[0:nXsLen]
+        ys = ys[0:nXsLen]
+        ys2 = ys2[0:nXsLen]
+
+        '''try clearing the figure'''
+        #DON'T DO THIS! DOESN'T WORK!
+        #NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
+        #ax1.cla()
         
 
 def niceTicks(data):
@@ -415,7 +425,7 @@ ser.open() #open it
 pawshake()
 #smartRead()
 #alignCheck(8)
-alignment = timeAlignCheck(8)
+alignment = timeAlignCheck(8, True)
 #etime = time.time() + 30
 '''attempt at live graphing'''
 test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
