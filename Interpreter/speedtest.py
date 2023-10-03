@@ -383,7 +383,8 @@ def graphTest(i, samples, alignment, samplesize):
         print(ser.in_waiting)
         #print(xs)
         #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
-        ser.flush()
+        ser.read_all() #by reading everything we can clear the buffer; Flush nor the others seemed to work
+        
         #things to try:
         # - CHECK ALIGNMENT!!!!!!
         #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
@@ -391,7 +392,8 @@ def graphTest(i, samples, alignment, samplesize):
         alignment = timeAlignCheck(samplesize, False)
         '''changing the time array crashes the graphing'''
         #remove the last [samples] entries from the array) - need to test what value to remove works best
-        nXsLen = 5119 - lastadd#(2*(samples*samplesize))
+        nXsLen = len(xs) - lastadd - 1 #(2*(samples*samplesize))
+        print("Removing: {n} entries".format(n=lastadd))
         xs = xs[0:nXsLen]
         ys = ys[0:nXsLen]
         ys2 = ys2[0:nXsLen]
