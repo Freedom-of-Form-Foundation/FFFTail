@@ -129,13 +129,16 @@ def fastRead():
          #delay for a lil bit
          time.sleep(0.01) #wait for about 10ms or so to give the buffer time to fill up a bit more then add it to our record
 
-def fastDecode(alightnment, packsize):
+#variable to keep track of where we were reading from the serial record lst
+read_point = 0
+#used to decode data and error correct in tandem with fastRead and the serial_record system
+def fastDecode(alignment, packsize):
     tbr = []
     #only start decoding if there is 10 samples at least, this will help with checking error correction
     #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
     #if we want we can adjust this later
-    if serial_record > packsize * 10:
-        for i in range(alignment, (len(todecode) - packsize), packsize): 
+    if (len(serial_record) - read_point) > packsize * 10:
+        for i in range(read_point, (len(todecode) - packsize), packsize): 
             e = i + packsize
             #slice up our sample into the values we want
             sample = todecode[i:e]
@@ -149,16 +152,48 @@ def fastDecode(alightnment, packsize):
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
 
+            '''alignment correction code'''
+            #the reason why we use this code instead of timeALignment check is because that always starts at zero in the buffer
+            #we need a dynamic system which remembers where it is in the serial_record, as that is a complete set of data
+            
             #if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             #figure out how to simplify or statement
             if((rawact > 4096 or rawact < 0) or (envactct > 4096 or envact < 0)):
-                return "misalign likely"
+                step = 0 #to keep track of how long we've been checking alignment
+                realigned = False #to keep track of if we've actually realigned things yet
+                
+                #variables to keep track of where we're looking
+                fs = read_point #first start
+                fe = fs+4 #first end
+                se = read_point+12 #second end
+                ss = se-4 #second start
+                
+                #similar checking code from timeAlignmentCheck
+                while (found == False) and (step < 24):
+                    if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
+                        #if we found the alignment update it
+                        read_point += step
+                        #do stuff here to re-decode data we would've missed or interpreted as gibberish
+                        decodeReverse()
+                    else:
+                        #since we didn't find the alignment keep looking
+                        step += 1
+                        fs += 1
+                        fe += 1
+                        ss += 1
+                        se += 1
+                        
             #add our sample to what we want to return
             tbr.append([timeact, rawact, envact])
 
     #only return the values when they're good
     #increment a value so we remember where we are in serial_record 
     return tbr
+
+#might not be necessary
+#function to read over serail_record backwards to make sure we're not missing data points in case of a skip
+def decodeReverse():
+    print("Oops! Function still under construction")
 
 #return numpoints number of samples by reading from serial
 ''' buff and m keep getting one entry longer every call at a time and I'm not sure why'''
