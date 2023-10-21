@@ -16,6 +16,8 @@ import matplotlib.animation as animation
 from matplotlib import style
 #stuff for byte conversion
 import struct
+#multiprocessing stuff
+import multiprocessing as mp
 
 #serial stuff
 ser = serial.Serial(baudrate=230400, timeout=None) #serial class
@@ -132,16 +134,19 @@ def fastRead():
 #variable to keep track of where we were reading from the serial record lst
 read_point = 0
 #used to decode data and error correct in tandem with fastRead and the serial_record system
-def fastDecode(alignment, packsize):
+def fastDecode(alignment, packsize, grabs):
     tbr = []
     #only start decoding if there is 10 samples at least, this will help with checking error correction
     #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
     #if we want we can adjust this later
-    if (len(serial_record) - read_point) > packsize * 10:
-        for i in range(read_point, (len(todecode) - packsize), packsize): 
-            e = i + packsize
+    if (len(serial_record) - read_point) > packsize * grabs:
+        end_point = read_point + packsize * (grabs - 1)
+        while read_point <= end_point:
+            #todecode = serial_record[read_point:end_point]
+            #for i in range(read_point, (len(todecode) - packsize), packsize): 
+            e = read_point + packsize
             #slice up our sample into the values we want
-            sample = todecode[i:e]
+            sample = todecode[read_point:e]
             #maybe redo these to be sample size independent when you get the chance
             #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
             timebytes = sample[0:4]
@@ -159,9 +164,13 @@ def fastDecode(alignment, packsize):
             #if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             #figure out how to simplify or statement
             if((rawact > 4096 or rawact < 0) or (envactct > 4096 or envact < 0)):
-                step = 0 #to keep track of how long we've been checking alignment
+                step = read_point #to keep track of how long we've been checking alignment
                 realigned = False #to keep track of if we've actually realigned things yet
-                
+
+                #make sure the readpoint isn't broken
+                if (read_point < 0) or (read_point > (len(serial_record) - packsize - 1)):
+                    read_point = (len(serial_record) - packsize - 1)
+                    time.sleep(0.05) #wait a lil bit for the serial_record to fill up more
                 #variables to keep track of where we're looking
                 fs = read_point #first start
                 fe = fs+4 #first end
@@ -169,12 +178,20 @@ def fastDecode(alignment, packsize):
                 ss = se-4 #second start
                 
                 #similar checking code from timeAlignmentCheck
-                while (found == False) and (step < 24):
+                while (found == False) and (step < (read_point + 24)):
                     if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
                         #if we found the alignment update it
                         read_point += step
                         #do stuff here to re-decode data we would've missed or interpreted as gibberish
-                        decodeReverse()
+                        #decodeReverse([fs,fe,se,ss])
+                        #makee sure we store the right values of things
+                        timebytes = sample[0:4]
+                        rawbytes = sample[4:6] 
+                        envbytes = sample[6:8]
+                        #do the math and get our data
+                        timeact = fixVals4(timebytes)
+                        rawact = fixVals2(rawbytes)
+                        envact = fixVals2(envbytes)
                     else:
                         #since we didn't find the alignment keep looking
                         step += 1
@@ -185,14 +202,19 @@ def fastDecode(alignment, packsize):
                         
             #add our sample to what we want to return
             tbr.append([timeact, rawact, envact])
-
-    #only return the values when they're good
-    #increment a value so we remember where we are in serial_record 
-    return tbr
+            #increment readpoint by packsize so we remember where we are in serial_record 
+            read_point += packsize
+        #only return the values when they're good
+        return tbr
+    #if there's not enough data in serial_record for whatever reason
+    else:
+        print("Not enough data in the serial_record yet for that amount of samples :( :(")
+        print("Current serial_record size: %r vs %g(requested data size)".format(r=len(serial_record),g=(packsize*grabs)))
+        #don't return anything
 
 #might not be necessary
 #function to read over serail_record backwards to make sure we're not missing data points in case of a skip
-def decodeReverse():
+def decodeReverse(window):
     print("Oops! Function still under construction")
 
 #return numpoints number of samples by reading from serial
@@ -382,6 +404,8 @@ if __name__ == "__main__":
     #alignCheck(8)
     alignment = timeAlignCheck(8, True)
     #etime = time.time() + 30
+    '''attempt at multiprocessing'''
+    
     '''attempt at live graphing'''
     test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
     plt.show()
