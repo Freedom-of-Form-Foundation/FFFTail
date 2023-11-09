@@ -18,6 +18,7 @@ from matplotlib import style
 import struct
 #multiprocessing stuff
 import multiprocessing as mp
+import threading
 
 #serial stuff
 ser = serial.Serial(baudrate=230400, timeout=None) #serial class
@@ -26,6 +27,12 @@ ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED
 #ser.setDTR(False) #this line makes the serial data readablle
 #ser.setRTS(False) #this line makes the serial data readablle
 
+#multiprocessing stuff
+lock = mp.Lock()
+#the string where we're gonna store our serial output
+serial_record = b''
+#variable to keep track of where we were reading from the serial record lst
+read_point = 0
 
 #function we should call to try and make things in sync
 #calling it pawshake instead of handshake because it's funny and furry
@@ -124,29 +131,36 @@ def timeAlignCheck(scnt, v):
         print("Test Failed, Expected pattern not found :( :(")
         #return the step so we can use it to measure alignment
 
-serial_record = ''
-def fastRead():
-    while ser.in_waiting:
-         serial_record+=ser.read(ser.in_waiting)
-         #delay for a lil bit
-         time.sleep(0.01) #wait for about 10ms or so to give the buffer time to fill up a bit more then add it to our record
 
-#variable to keep track of where we were reading from the serial record lst
-read_point = 0
+def fastRead(packsize, lock):
+    while ser.in_waiting:
+        if ser.in_waiting > 12:
+            #lock.acquire() #make sure that decode isn't blocking the serial record so that we don't goof stuff up
+            global serial_record
+            serial_record+=ser.read(ser.in_waiting)
+            #delay for a lil bit
+            ser.reset_input_buffer() #50% sure this command doesn't work and we need to do like ser.buffer = "" or some such
+            #lock.release() #give up control of the lock
+        time.sleep(0.01) #wait for about 10ms or so to give the buffer time to fill up a bit more then add it to our record
+
 #used to decode data and error correct in tandem with fastRead and the serial_record system
-def fastDecode(alignment, packsize, grabs):
+def fastDecode(alignment, packsize, grabs, lock):
     tbr = []
     #only start decoding if there is 10 samples at least, this will help with checking error correction
     #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
     #if we want we can adjust this later
+    '''redoing this; Instead of directly referencing serial record every time, thus locking it, copy what we want from the serial record into a window to decode'''
     if (len(serial_record) - read_point) > packsize * grabs:
-        end_point = read_point + packsize * (grabs - 1)
-        while read_point <= end_point:
+        with lock: #make sure we have access to serial_record
+            decode_window = serial_record[read_point:end_point]
+            end_point = read_point + packsize * (grabs - 1)
+            locl.release()
+        for i in range(0, (len(decode_window) - packsize), packsize):
             #todecode = serial_record[read_point:end_point]
             #for i in range(read_point, (len(todecode) - packsize), packsize): 
-            e = read_point + packsize
+            e = i + packsize
             #slice up our sample into the values we want
-            sample = todecode[read_point:e]
+            sample = todecode[i:e]
             #maybe redo these to be sample size independent when you get the chance
             #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
             timebytes = sample[0:4]
@@ -158,49 +172,52 @@ def fastDecode(alignment, packsize, grabs):
             envact = fixVals2(envbytes)
 
             '''alignment correction code'''
+            '''make sure that this either locks or otherwise doesn't mess up fastRead'''
             #the reason why we use this code instead of timeALignment check is because that always starts at zero in the buffer
             #we need a dynamic system which remembers where it is in the serial_record, as that is a complete set of data
             
             #if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             #figure out how to simplify or statement
             if((rawact > 4096 or rawact < 0) or (envactct > 4096 or envact < 0)):
-                step = read_point #to keep track of how long we've been checking alignment
-                realigned = False #to keep track of if we've actually realigned things yet
+                with lock: #this makes sure we're actually 
+                    step = read_point #to keep track of how long we've been checking alignment
+                    realigned = False #to keep track of if we've actually realigned things yet
 
-                #make sure the readpoint isn't broken
-                if (read_point < 0) or (read_point > (len(serial_record) - packsize - 1)):
-                    read_point = (len(serial_record) - packsize - 1)
-                    time.sleep(0.05) #wait a lil bit for the serial_record to fill up more
-                #variables to keep track of where we're looking
-                fs = read_point #first start
-                fe = fs+4 #first end
-                se = read_point+12 #second end
-                ss = se-4 #second start
-                
-                #similar checking code from timeAlignmentCheck
-                while (found == False) and (step < (read_point + 24)):
-                    if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
-                        #if we found the alignment update it
-                        read_point += step
-                        #do stuff here to re-decode data we would've missed or interpreted as gibberish
-                        #decodeReverse([fs,fe,se,ss])
-                        #makee sure we store the right values of things
-                        timebytes = sample[0:4]
-                        rawbytes = sample[4:6] 
-                        envbytes = sample[6:8]
-                        #do the math and get our data
-                        timeact = fixVals4(timebytes)
-                        rawact = fixVals2(rawbytes)
-                        envact = fixVals2(envbytes)
-                    else:
-                        #since we didn't find the alignment keep looking
-                        step += 1
-                        fs += 1
-                        fe += 1
-                        ss += 1
-                        se += 1
+                    #make sure the readpoint isn't broken
+                    if (read_point < 0) or (read_point > (len(serial_record) - packsize - 1)):
+                        read_point = (len(serial_record) - packsize - 1)
+                        time.sleep(0.05) #wait a lil bit for the serial_record to fill up more
+                    #variables to keep track of where we're looking
+                    fs = read_point #first start
+                    fe = fs+4 #first end
+                    se = read_point+12 #second end
+                    ss = se-4 #second start
+                    
+                    #similar checking code from timeAlignmentCheck
+                    while (found == False) and (step < (read_point + 24)):
+                        if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
+                            #if we found the alignment update it
+                            read_point += step
+                            #do stuff here to re-decode data we would've missed or interpreted as gibberish
+                            #decodeReverse([fs,fe,se,ss])
+                            #makee sure we store the right values of things
+                            timebytes = sample[0:4]
+                            rawbytes = sample[4:6] 
+                            envbytes = sample[6:8]
+                            #do the math and get our data
+                            timeact = fixVals4(timebytes)
+                            rawact = fixVals2(rawbytes)
+                            envact = fixVals2(envbytes)
+                        else:
+                            #since we didn't find the alignment keep looking
+                            step += 1
+                            fs += 1
+                            fe += 1
+                            ss += 1
+                            se += 1
                         
             #add our sample to what we want to return
+            #MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
             tbr.append([timeact, rawact, envact])
             #increment readpoint by packsize so we remember where we are in serial_record 
             read_point += packsize
@@ -216,9 +233,7 @@ def fastDecode(alignment, packsize, grabs):
 #function to read over serail_record backwards to make sure we're not missing data points in case of a skip
 def decodeReverse(window):
     print("Oops! Function still under construction")
-
-#return numpoints number of samples by reading from serial
-''' buff and m keep getting one entry longer every call at a time and I'm not sure why'''
+'''
 #likely has to do with the passes code calling it
 def grabData(passes, packsize):
     buff = [] #for just storing a bunch of bytes before we turn it back into data we can use
@@ -240,7 +255,7 @@ def grabData(passes, packsize):
 def grabDecode(todecode, alignment, packsize):
     tbr = []
     #since we want to iterate from the start of our alignment to the end our our decode buffer where i should be multiples of the size of our packets
-    '''keep getting an error about range arg 3 being 0 here'''
+    'keep getting an error about range arg 3 being 0 here'
     for i in range(alignment, (len(todecode) - packsize), packsize): 
         #s = i+alignment #get the start of a data packet
         e = i + packsize
@@ -262,7 +277,7 @@ def grabDecode(todecode, alignment, packsize):
         
     #return our values
     return tbr
-            
+'''            
 #used for 2 byte values
 def fixVals2(bvals):
     return (bvals[0]<<8|bvals[1])
@@ -287,7 +302,7 @@ ys2 = []
 #alignment = how we need to adjust the incoming bytes
 #samplesize = size of samples in bytes
 def graphTest(i, samples, alignment, samplesize):
-    bytedata = grabData(samples, samplesize)
+    #bytedata = fastDecode(samples, samplesize)
     #print("data grabbed: {d}".format(d=bytedata))
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
     #convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
@@ -299,7 +314,8 @@ def graphTest(i, samples, alignment, samplesize):
     #ys.append(np.ndarray.tolist(data[1])) #our raw data
     #add a env
     '''a bit sloppy but should work for testing purposes'''
-    data = grabDecode(bytedata, alignment, 12) # hard coded the 12 here because of an error where it was zero for some reason
+    #alignment, packsize, grabs, lock
+    data = fastDecode(alignment, 12, samples, lock) # hard coded the 12 here because of an error where it was zero for some reason
     lastadd = len(data)
     
     for sample in data:
@@ -393,6 +409,11 @@ def niceTicks(data):
             labels.append(str(v/500000))
     return tickvals, labels
 
+#attempt at live graphing
+def fastGraph(alignment):
+    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
+    plt.show()
+
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
 #-------------------------
@@ -404,12 +425,20 @@ if __name__ == "__main__":
     #alignCheck(8)
     alignment = timeAlignCheck(8, True)
     #etime = time.time() + 30
-    '''attempt at multiprocessing'''
     
-    '''attempt at live graphing'''
-    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
-    plt.show()
-
+    #attempt at multiprocessing
+    print("Creating fastRead thread...")
+    fr = mp.process(target=fastRead, args=(12, lock,))
+    print("Creating fastGraoh thread...")
+    fg = mp.process(target=fastGraph, args=(alignment, ))
+    
+    print("Starting threads...")
+    fr.start()
+    fg.start()
+    print("Threads Started")
+    fr.join()
+    fg.join()
+    
 
     '''
     #non-live graphing
@@ -429,8 +458,12 @@ if __name__ == "__main__":
     print("s: {t2}".format(t2=expected))
     print("data can be accessed as 'data'")
     '''
-    print("Closing serial port!")
     ser.close()
+    print("Closed serial port!")
+    if fr.is_alive():
+        print("Closed fastRead thread!")
+    if fg.is_alive():
+        print("Closed fastGraph thread!")
 
 #old code that I will delete later
 '''
