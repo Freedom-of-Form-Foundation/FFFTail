@@ -146,15 +146,17 @@ def fastRead(packsize, lock):
 #used to decode data and error correct in tandem with fastRead and the serial_record system
 def fastDecode(alignment, packsize, grabs, lock):
     tbr = []
+    global read_point
+    end_point = 0
     #only start decoding if there is 10 samples at least, this will help with checking error correction
     #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
     #if we want we can adjust this later
     '''redoing this; Instead of directly referencing serial record every time, thus locking it, copy what we want from the serial record into a window to decode'''
     if (len(serial_record) - read_point) > packsize * grabs:
-        with lock: #make sure we have access to serial_record
-            decode_window = serial_record[read_point:end_point]
-            end_point = read_point + packsize * (grabs - 1)
-            locl.release()
+        lock.acquire() #make sure we have access to serial_record
+        decode_window = serial_record[read_point:end_point]
+        end_point = read_point + packsize * (grabs - 1)
+        lock.release()
         for i in range(0, (len(decode_window) - packsize), packsize):
             #todecode = serial_record[read_point:end_point]
             #for i in range(read_point, (len(todecode) - packsize), packsize): 
@@ -409,11 +411,6 @@ def niceTicks(data):
             labels.append(str(v/500000))
     return tickvals, labels
 
-#attempt at live graphing
-def fastGraph(alignment):
-    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
-    plt.show()
-
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
 #-------------------------
@@ -427,17 +424,20 @@ if __name__ == "__main__":
     #etime = time.time() + 30
     
     #attempt at multiprocessing
-    print("Creating fastRead thread...")
-    fr = mp.process(target=fastRead, args=(12, lock,))
-    print("Creating fastGraoh thread...")
-    fg = mp.process(target=fastGraph, args=(alignment, ))
+    queue = mp.Queue()
+    stopped = threading.Event()
     
+    print("Creating fastRead thread...")
+    fr = threading.Thread(target=fastRead, args=(12, lock,))
     print("Starting threads...")
     fr.start()
-    fg.start()
-    print("Threads Started")
+    print("Thread Started")
+    print("Creating Graoh...")
+    #fg = threading.Thread(target=fastGraph, args=(alignment, ))
+    test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
+    plt.show()
+    
     fr.join()
-    fg.join()
     
 
     '''
@@ -462,8 +462,6 @@ if __name__ == "__main__":
     print("Closed serial port!")
     if fr.is_alive():
         print("Closed fastRead thread!")
-    if fg.is_alive():
-        print("Closed fastGraph thread!")
 
 #old code that I will delete later
 '''
