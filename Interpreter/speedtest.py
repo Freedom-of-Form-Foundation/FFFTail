@@ -133,11 +133,15 @@ def timeAlignCheck(scnt, v):
 
 
 def fastRead(packsize, lock):
+    #print("doing something")
     while ser.in_waiting:
+        #print("serial in waiting {n}".format(n=ser.in_waiting))
         if ser.in_waiting > 12:
+            #print("recived enough to pass!")
             #lock.acquire() #make sure that decode isn't blocking the serial record so that we don't goof stuff up
             global serial_record
             serial_record+=ser.read(ser.in_waiting)
+            #print("Length of serial record according to fastRead: {l}".format(l=len(serial_record)))
             #delay for a lil bit
             ser.reset_input_buffer() #50% sure this command doesn't work and we need to do like ser.buffer = "" or some such
             #lock.release() #give up control of the lock
@@ -147,22 +151,32 @@ def fastRead(packsize, lock):
 def fastDecode(alignment, packsize, grabs, lock):
     tbr = []
     global read_point
+    global serial_record
     end_point = 0
+    #print("running fastDecode: serial_record length according to fastDecode: {l}".format(l=len(serial_record)))
     #only start decoding if there is 10 samples at least, this will help with checking error correction
     #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
     #if we want we can adjust this later
     '''redoing this; Instead of directly referencing serial record every time, thus locking it, copy what we want from the serial record into a window to decode'''
     if (len(serial_record) - read_point) > packsize * grabs:
+        print("decoding...")
         lock.acquire() #make sure we have access to serial_record
-        decode_window = serial_record[read_point:end_point]
         end_point = read_point + packsize * (grabs - 1)
+        print("Grabbing from serial record with: packsize = {ps}; read_point = {rp}; end_point = {ep}".format(ps=packsize, rp=read_point, ep=end_point))
+        decode_window = serial_record[read_point:end_point]
+        print("decode_window: {d}".format(d=decode_window)) #decode window is empty for some reason
+        print("serial_record: {csr}".format(csr=serial_record))
         lock.release()
-        for i in range(0, (len(decode_window) - packsize), packsize):
+        window_size = len(decode_window)
+        print("window size: {s}".format(s=window_size))
+
+        #read from the beginning of the window to 1 packsize before the end
+        for i in range(0, (window_size - packsize), packsize):
             #todecode = serial_record[read_point:end_point]
             #for i in range(read_point, (len(todecode) - packsize), packsize): 
             e = i + packsize
             #slice up our sample into the values we want
-            sample = todecode[i:e]
+            sample = decode_window[i:e]
             #maybe redo these to be sample size independent when you get the chance
             #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
             timebytes = sample[0:4]
@@ -172,6 +186,8 @@ def fastDecode(alignment, packsize, grabs, lock):
             timeact = fixVals4(timebytes)
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
+            if i == 0:
+                print("example from sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
 
             '''alignment correction code'''
             '''make sure that this either locks or otherwise doesn't mess up fastRead'''
@@ -181,6 +197,7 @@ def fastDecode(alignment, packsize, grabs, lock):
             #if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             #figure out how to simplify or statement
             if((rawact > 4096 or rawact < 0) or (envactct > 4096 or envact < 0)):
+                print("Misalignment detected, performing alignment correction")
                 with lock: #this makes sure we're actually 
                     step = read_point #to keep track of how long we've been checking alignment
                     realigned = False #to keep track of if we've actually realigned things yet
@@ -196,7 +213,7 @@ def fastDecode(alignment, packsize, grabs, lock):
                     ss = se-4 #second start
                     
                     #similar checking code from timeAlignmentCheck
-                    while (found == False) and (step < (read_point + 24)):
+                    while (realigned == False) and (step < (read_point + 24)):
                         if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
                             #if we found the alignment update it
                             read_point += step
@@ -210,6 +227,7 @@ def fastDecode(alignment, packsize, grabs, lock):
                             timeact = fixVals4(timebytes)
                             rawact = fixVals2(rawbytes)
                             envact = fixVals2(envbytes)
+                            realigned == True
                         else:
                             #since we didn't find the alignment keep looking
                             step += 1
@@ -221,8 +239,9 @@ def fastDecode(alignment, packsize, grabs, lock):
             #add our sample to what we want to return
             #MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
             tbr.append([timeact, rawact, envact])
-            #increment readpoint by packsize so we remember where we are in serial_record 
-            read_point += packsize
+            #increment readpoint by packsize so we remember where we are in serial_record
+            print("updating read_point")
+            read_point += window_size
         #only return the values when they're good
         return tbr
     #if there's not enough data in serial_record for whatever reason
@@ -318,82 +337,83 @@ def graphTest(i, samples, alignment, samplesize):
     '''a bit sloppy but should work for testing purposes'''
     #alignment, packsize, grabs, lock
     data = fastDecode(alignment, 12, samples, lock) # hard coded the 12 here because of an error where it was zero for some reason
-    lastadd = len(data)
-    
-    for sample in data:
-        global xs, ys, ys2
-        xs.append(sample[0])
-        ys.append(sample[1])
-        ys2.append(sample[2])
+    if(data):
+        lastadd = len(data)
         
-    #limit the arrays size
-    xs = xs[-5120:]
-    ys = ys[-5120:]
-    ys2 = ys2[-5120:]
+        for sample in data:
+            global xs, ys, ys2
+            xs.append(sample[0])
+            ys.append(sample[1])
+            ys2.append(sample[2])
+            
+        #limit the arrays size
+        xs = xs[-5120:]
+        ys = ys[-5120:]
+        ys2 = ys2[-5120:]
 
-    #draw the graph
-    ax1.clear()
-    ax1.plot(xs, ys, label='Raw')
-    ax1.plot(xs, ys2, label='Env')
+        #draw the graph
+        ax1.clear()
+        ax1.plot(xs, ys, label='Raw')
+        ax1.plot(xs, ys2, label='Env')
 
-    #formatting stuff
-    plt.title("Live graphing from ESP32")
-    ax1.set_xlabel('Time')
-    ax1.set_ylabel('Raw and Raw')
-    ax1.legend() #to help differentiate the values being graphed
-    ax1.grid(True)
-    
-    #space out the labels on the x data
-    #get the positions we need for spacing ticks evently
-    
-    tickvals, labels = niceTicks(xs)
-    #tickvals = nticks[0]
-    #labels = nticks[1]
-
-    ax1.set(yticklabels=[])
-    ax1.set_xticks(tickvals) #where to place tick marks
-    ax1.set_xticklabels(labels) #labels
-    #print("graph Complete!")
-    
-    '''
-    #had to use the old function, need to double check why niceTicks doesn't work
-    #want to get rest of set up working first
-    x_length = len(xs)
-
-    if(x_length > 8):
-        ax1.set(yticklabels=[])
-        ax1.set(yticklabels=[])
+        #formatting stuff
+        plt.title("Live graphing from ESP32")
+        ax1.set_xlabel('Time')
+        ax1.set_ylabel('Raw and Raw')
+        ax1.legend() #to help differentiate the values being graphed
+        ax1.grid(True)
+        
+        #space out the labels on the x data
         #get the positions we need for spacing ticks evently
-        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
-        ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-        ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
-    '''
-    #test to make sure that there aren't non-distinct x values which will mess up the graph
-    if len(xs) != len(set(xs)):
-        print("Uh oh! there are duplicates!")
-        print(ser.in_waiting)
-        #print(xs)
-        #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
-        ser.read_all() #by reading everything we can clear the buffer; Flush nor the others seemed to work
         
-        #things to try:
-        # - CHECK ALIGNMENT!!!!!!
-        #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
-        #if the alignment has changed; Update it so we won't get weird errors
-        alignment = timeAlignCheck(samplesize, False)
-        '''changing the time array crashes the graphing'''
-        #remove the last [samples] entries from the array) - need to test what value to remove works best
-        nXsLen = len(xs) - lastadd - 1 #(2*(samples*samplesize))
-        print("Removing: {n} entries".format(n=lastadd))
-        xs = xs[0:nXsLen]
-        ys = ys[0:nXsLen]
-        ys2 = ys2[0:nXsLen]
+        tickvals, labels = niceTicks(xs)
+        #tickvals = nticks[0]
+        #labels = nticks[1]
 
-        '''try clearing the figure'''
-        #DON'T DO THIS! DOESN'T WORK!
-        #NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
-        #ax1.cla()
+        ax1.set(yticklabels=[])
+        ax1.set_xticks(tickvals) #where to place tick marks
+        ax1.set_xticklabels(labels) #labels
+        #print("graph Complete!")
+        
+        '''
+        #had to use the old function, need to double check why niceTicks doesn't work
+        #want to get rest of set up working first
+        x_length = len(xs)
+
+        if(x_length > 8):
+            ax1.set(yticklabels=[])
+            ax1.set(yticklabels=[])
+            #get the positions we need for spacing ticks evently
+            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
+            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+        '''
+        #test to make sure that there aren't non-distinct x values which will mess up the graph
+        if len(xs) != len(set(xs)):
+            print("Uh oh! there are duplicates!")
+            print(ser.in_waiting)
+            #print(xs)
+            #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
+            ser.read_all() #by reading everything we can clear the buffer; Flush nor the others seemed to work
+            
+            #things to try:
+            # - CHECK ALIGNMENT!!!!!!
+            #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
+            #if the alignment has changed; Update it so we won't get weird errors
+            alignment = timeAlignCheck(samplesize, False)
+            '''changing the time array crashes the graphing'''
+            #remove the last [samples] entries from the array) - need to test what value to remove works best
+            nXsLen = len(xs) - lastadd - 1 #(2*(samples*samplesize))
+            print("Removing: {n} entries".format(n=lastadd))
+            xs = xs[0:nXsLen]
+            ys = ys[0:nXsLen]
+            ys2 = ys2[0:nXsLen]
+
+            '''try clearing the figure'''
+            #DON'T DO THIS! DOESN'T WORK!
+            #NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
+            #ax1.cla()
         
 
 def niceTicks(data):
