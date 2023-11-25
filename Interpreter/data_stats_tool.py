@@ -18,15 +18,16 @@ def parsedata(data):
     # values = [] #actual readings at times
     Lines = data.readlines()
     count = 0
-
+    usb = False
+    
     for line in Lines:
         if ' ' in line:  # Dealing with USB data
+            usb = True
             tvd = line.split()  # 0 in the array should be the time and the rest should be the data
             readings = tvd[2].split(",")
             times.append(int(readings[0]))
             raw.append(int(readings[1]))
             env.append(int(readings[2]))
-            skipCount(times)
         else:
             readings = line.split(",")  # microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
             # print(microtime)
@@ -38,6 +39,7 @@ def parsedata(data):
         # print(count + " - t1:" times[count] + "; t2:" + times[count-1])
         count += 1  # iterate the line number
 
+    if usb: skipCount(times)
     return [times, raw, env, dt]
 
 
