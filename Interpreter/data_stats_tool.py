@@ -17,17 +17,15 @@ def parsedata(data):
     dt = []  # changes in time
     # values = [] #actual readings at times
     Lines = data.readlines()
-    skips = -1
 
     for line in Lines:
         if ' ' in line:  # Dealing with USB data
             tvd = line.split()  # 0 in the array should be the time and the rest should be the data
             readings = tvd[2].split(",")
 
-            if int(readings[0]) < times[-1]:
-                skips += 1
+            if len(times) >= 1:
+                dt.append(int(readings[0]) - times[-1])
 
-            dt.append(int(readings[0]) - times[-1])
             times.append(int(readings[0]))
             raw.append(int(readings[1]))
             env.append(int(readings[2]))
@@ -35,15 +33,14 @@ def parsedata(data):
             readings = line.split(",")  # microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
             # print(microtime)
 
-            if float(readings[0]) < times[-1]:
-                skips += 1
+            if len(times) >= 1:
+                dt.append(float(readings[0]) - times[-1])
 
-            dt.append(float(readings[0]) - times[-1])
             times.append(float(readings[0]))
 
-    print("Time skips:", skips)
+    print("Time skips:", sum(1 for delta in dt if delta < 0))
 
-    return [times, raw, env, dt[1:]]
+    return [times, raw, env, dt]
 
 
 def comparedata(bluetooth, usb):
