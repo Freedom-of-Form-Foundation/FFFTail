@@ -1,60 +1,53 @@
-#usb vs bluetooth graph data
-#T&R, 2022/2/16
+# usb vs bluetooth graph data
+# T&R, 2022/2/16
 
-#the stuff we need to make graphs
-import plotly.graph_objects as go #used to make the skew graphs
+# the stuff we need to make graphs
+import plotly.graph_objects as go  # used to make the skew graphs
 import numpy as np
 
-#parse the bt data
-def parsebt(data):
-    times = [] #times when things happen
-    dt = [] #changes in time
-    #values = [] #actual readings at times
 
+# parse the data
+# this assumes arduino serial monitor has been set to have timestamps enabled
+# eg format of each line looks roughly like: 14:17:57.637 -> 60733167,1867,549
+
+def parsedata(data):
+    times = []  # times when things happen
+    raw = []  # raw values
+    env = []  # env values
+    dt = []  # changes in time
+    # values = [] #actual readings at times
     Lines = data.readlines()
-    count = 0
+
     for line in Lines:
-        #tvd = line.split() #0 in the array should be the time and the rest should be the data
-        #get the times
-        microtime = line.split(",") #microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
-        #print(microtime)
-        times.append(float(microtime[0]))
+        if ' ' in line:  # Dealing with USB data
+            tvd = line.split()  # 0 in the array should be the time and the rest should be the data
+            readings = tvd[2].split(",")
 
-        #get the delta t values
-        if count > 1:
-            dt.append(times[count] - times[count-1])
-        #print(count + " - t1:" times[count] + "; t2:" + times[count-1])
-        count +=1 #iterate the line number
-    return dt
+            if len(times) >= 1:
+                dt.append(int(readings[0]) - times[-1])
 
-#parse the usb data, since it has a slightly different format
-def parseusb(data):
-    times = [] #times when things happen
-    dt = [] #changes in time
-    #values = [] #actual readings at times
+            times.append(int(readings[0]))
+            raw.append(int(readings[1]))
+            env.append(int(readings[2]))
+        else:
+            readings = line.split(",")  # microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
+            # print(microtime)
 
-    Lines = data.readlines()
-    count = 0
-    for line in Lines:
-        tvd = line.split() #0 in the array should be the time and the rest should be the data
-        #get the times
-        microtime = tvd[2].split(",") #this tiny lil 2 is the only difference, probably could fit both functions together somehow but ehh
-        #clean the data a bit
-        times.append(int(microtime[0]))
+            if len(times) >= 1:
+                dt.append(float(readings[0]) - times[-1])
 
-        #get the delta t values
-        if count > 1:
-            dt.append(times[count] - times[count-1])
-        #print(count + " - t1:" times[count] + "; t2:" + times[count-1])
-        count +=1 #iterate the line number
-    skipCount(times)
-    return dt
+            times.append(float(readings[0]))
+
+    print("Time skips:", sum(1 for delta in dt if delta < 0))
+
+    return [times, raw, env, dt]
+
 
 def comparedata(bluetooth, usb):
     different = 0
     same = 0
     for i in range(len(bluetooth)):
-        #print("bt: " + str(bluetooth[i]) + ", usb: " + str(usb[i]))
+        # print("bt: " + str(bluetooth[i]) + ", usb: " + str(usb[i]))
         if bluetooth[i] == usb[i]:
             same += 1
         else:
@@ -62,71 +55,66 @@ def comparedata(bluetooth, usb):
     print("Same: %d" % same)
     print("Different: %d" % different)
 
-def extranalyze(data):
+
+def extranalyze(data, print_results):
     avg = 0
-    count = 0 #sum of the values in data so far, used for calculating average
-    lcount = 0 #the last value of our count
-    cdips = 0 #the number of times that our count goes down (it should never do that)
+    count = 0  # sum of the values in data so far, used for calculating average
+    lcount = 0  # the last value of our count
+    cdips = 0  # the number of times that our count goes down (it should never do that)
     high = 0
     low = 0
     datarange = 0
-    tbp = [] #to be popped, for helping clean up our data
+    tbp = []  # to be popped, for helping clean up our data
     for i in range(len(data)):
         if data[i] > 0:
-            count += data[i] #sum the array
-            if(count <= lcount):
+            count += data[i]  # sum the array
+            if (count <= lcount):
                 cdips += 1
             lcount = count
         else:
             tbp.append(i)
 
-    #clean up our data some
-    #used for removing/tracking negative time differences
+    # clean up our data some
+    # used for removing/tracking negative time differences
     if len(tbp) > 0:
         for n in tbp:
             data.pop(n)
-    
+
     avg = count / len(data)
-    #keep track of high and low
+    print("Sanity check average", avg == np.average(data))
+    # keep track of high and low
     low = min(data)
     high = max(data)
     datarange = high - low
-    print("Results: ")
-    print("average: {}μs".format(avg))
-    print("maximum: {}μs".format(high))
-    print("minimum: {}μs".format(low))
-    print("range:   {}μs\n".format(datarange))
-    print("Testing attributes: ")
-    print("Drops in total before divison for average: {}".format(cdips))
-    print("Negative time differences: {}".format(len(tbp)))
 
-#def nullCount(data):
-    #for i in range
+    if print_results:
+        print("Results: ")
+        print("average: {}μs".format(avg))
+        print("maximum: {}μs".format(high))
+        print("minimum: {}μs".format(low))
+        print("range:   {}μs\n".format(datarange))
+        print("Testing attributes: ")
+        print("Drops in total before division for average: {}".format(cdips))
+        print("Negative time differences: {}".format(len(tbp)))
+    else:
+        return [avg, high, low, datarange, cdips, len(tbp)]
 
-def skipCount(data):
-    skips = 0
-    for i in range(len(data) - 1):
-        if data[i] > data[i + 1]:
-            skips += 1 #count a skip
-            #print("t1: %d t2: %d" % (data[i], data[i+1]))
-    print("Skips: %d" % skips)
 
-#code that does stuff
-#file1 = input("Bluetooth Path: ")
+# code that does stuff
+# file1 = input("Bluetooth Path: ")
 file2 = input("Path To Data: ")
-#btdata = open(file1, "r")
+# btdata = open(file1, "r")
 data = open(file2, "r")
 
-#comapre deltas
-#comparedata(parsebt(btdata), praseusb(usbdata))
+# compare deltas
+# comparedata(parsebt(btdata), parseusb(usbdata))
 
-#print(parsebt(btdata))
-#print(praseusb(usbdata))
-parsed = parseusb(data)
-#print(parsed)
-extranalyze(parsed)
-#skipCount(parsed) #this doesn't work because you're talking the difference in time not the actual times
-#close the files once we're done
-#btdata.close()
+# print(parsebt(btdata))
+# print(parseusb(usbdata))
+parsed = parsedata(data)[3]
+# print(parsed)
+extranalyze(parsed, True)
+# skipCount(parsed) # this doesn't work because you're talking the difference in time not the actual times
+# close the files once we're done
+# btdata.close()
 data.close()
-
