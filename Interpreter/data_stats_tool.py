@@ -17,32 +17,33 @@ def parsedata(data):
     dt = []  # changes in time
     # values = [] #actual readings at times
     Lines = data.readlines()
-    count = 0
-    usb = False
+    skips = -1
 
     for line in Lines:
         if ' ' in line:  # Dealing with USB data
-            usb = True
             tvd = line.split()  # 0 in the array should be the time and the rest should be the data
             readings = tvd[2].split(",")
+
+            if int(readings[0]) < times[-1]:
+                skips += 1
+
+            dt.append(int(readings[0]) - times[-1])
             times.append(int(readings[0]))
             raw.append(int(readings[1]))
             env.append(int(readings[2]))
         else:
             readings = line.split(",")  # microtime looks like ['100532254', '1802', '0\n'] eg, [time, raw, env\n]
             # print(microtime)
+
+            if float(readings[0]) < times[-1]:
+                skips += 1
+
+            dt.append(float(readings[0]) - times[-1])
             times.append(float(readings[0]))
 
-        # get the delta t values
-        if count > 1:
-            dt.append(times[count] - times[count - 1])
-        # print(count + " - t1:" times[count] + "; t2:" + times[count-1])
-        count += 1  # iterate the line number
+    print("Time skips:", skips)
 
-        if usb:
-            skipCount(times)
-
-    return [times, raw, env, dt]
+    return [times, raw, env, dt[1:]]
 
 
 def comparedata(bluetooth, usb):
@@ -100,17 +101,6 @@ def extranalyze(data, print_results):
         print("Negative time differences: {}".format(len(tbp)))
     else:
         return [avg, high, low, datarange, cdips, len(tbp)]
-
-# def nullCount(data):
-# for i in range
-
-def skipCount(data):
-    skips = 0
-    for i in range(len(data) - 1):
-        if data[i] > data[i + 1]:
-            skips += 1  # count a skip
-            # print("t1: %d t2: %d" % (data[i], data[i+1]))
-    print("Skips: %d" % skips)
 
 
 # code that does stuff
