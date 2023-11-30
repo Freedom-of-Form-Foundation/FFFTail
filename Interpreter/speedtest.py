@@ -1,96 +1,100 @@
-#T&R 2023 (@Mecknavorz)
-#made for the FFF enhanced tail project.
-#used for testing varius aspects around how fast we can send data over serial
+# T&R 2023 (@Mecknavorz)
+# made for the FFF enhanced tail project.
+# used for testing varius aspects around how fast we can send data over serial
 
-#important stuff
+# important stuff
 import sys
 import time
-#serial read
+# serial read
 import serial
 import io
-#graph
-#import pyqtgraph as pg
+# graph
+# import pyqtgraph as pg
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
-#stuff for byte conversion
+# stuff for byte conversion
 import struct
-#multiprocessing stuff
+# multiprocessing stuff
 import multiprocessing as mp
 import threading
+# pepper grapgher imports
+# import pyqtgraph as pg
+# import pyqtgraph.multiprocess as mp
+# import time
 
 #serial stuff
-ser = serial.Serial(baudrate=230400, timeout=None) #serial class
-#ser.set_buffer_size(rx_size = 256, tx_size = 256) #defualot buffer size is 2^16 =65536 #doesn't seem to do anything
-ser.port = 'COM3' #<<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
-#ser.setDTR(False) #this line makes the serial data readablle
-#ser.setRTS(False) #this line makes the serial data readablle
+ser = serial.Serial(baudrate=230400, timeout=None) # serial class
+#ser.set_buffer_size(rx_size = 256, tx_size = 256) # defualot buffer size is 2^16 =65536 #doesn't seem to do anything
+ser.port = 'COM3' # <<<<======== set the port IMPORTANT!!!! CHANGE THIS AS NEEDED!!!!!!!
+#ser.setDTR(False) # this line makes the serial data readablle
+#ser.setRTS(False) # this line makes the serial data readablle
 
-#multiprocessing stuff
+# multiprocessing stuff
 lock = mp.Lock()
-#the string where we're gonna store our serial output
+# the string where we're gonna store our serial output
 serial_record = b''
-#variable to keep track of where we were reading from the serial record lst
+# variable to keep track of where we were reading from the serial record lst
 read_point = 0
 
-#function we should call to try and make things in sync
-#calling it pawshake instead of handshake because it's funny and furry
+# function we should call to try and make things in sync
+# calling it pawshake instead of handshake because it's funny and furry
 def pawshake():
     print("Performing pawshake...")
-    shake = False #for tracking if we actually shook or not
-    ser.write(621) #write some random data to let the esp32 know we're here
-    #recoding  how much data is in the input/output buffers for later comparison
+    shake = False # for tracking if we actually shook or not
+    ser.write(621) # write some random data to let the esp32 know we're here
+    # recoding  how much data is in the input/output buffers for later comparison
     oldout = ser.out_waiting
     oldin = ser.in_waiting
-    #since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
+    # since the hsake hasn't been confirmed, keep running this loop to check until we get it confirmed
     while(not shake):
-        #wait to see if the bytes has been sent
-        '''SOMETHING TO CONSIDER:''' #should we check to see if it's zero or just one less than what it was when we started?
+        # wait to see if the bytes has been sent
+        '''SOMETHING TO CONSIDER:''' # should we check to see if it's zero or just one less than what it was when we started?
         if(ser.out_waiting < oldout):
-            w = ser.readline()#.decode() #not sure if the decode is needed
-            print(w[-104:-1]) #needs to be tailored to specific start message, current message is 52 char long w/2 end chars
+            w = ser.readline()#.decode() # not sure if the decode is needed
+            print(w[-104:-1]) # needs to be tailored to specific start message, current message is 52 char long w/2 end chars
             ser.write(621)
-            #see of the ESP32 send a message back
-            #trying this by looking at the previous in vaue instead of 
+            # see of the ESP32 send a message back
+            # trying this by looking at the previous in vaue instead of 
             if(ser.in_waiting > oldin):
-                #clear the buffer so we don't read junk data by accident
+                # clear the buffer so we don't read junk data by accident
                 ser.reset_input_buffer()
-                #update our shake so that we can do the rest of the things
+                # update our shake so that we can do the rest of the things
                 shake = True
-        #if we did the shake we don't need to wait
+        # if we did the shake we don't need to wait
         if not shake:
-            time.sleep(.1) #sleep for .1 seconds before checking to see if theer was a response again
+            time.sleep(.1) # sleep for .1 seconds before checking to see if theer was a response again
 
 
-#variation of align checker for use with SerialSpeedTest-USB2
-#in short: it looks for this pattern: [prev entry], time[4 bytes], raw [2 bytes], env [2 bytes], time [4 bytes], [new entry]
-#each sample is expected to be 12 bytes, with the 4 at the start and end being thwe time of the sample
-#may change the pattern down the line, or for the final version SO BE AWARE
+# variation of align checker for use with SerialSpeedTest-USB2
+# in short: it looks for this pattern: [prev entry], time[4 bytes], raw [2 bytes], env [2 bytes], time [4 bytes], [new entry]
+# each sample is expected to be 12 bytes, with the 4 at the start and end being thwe time of the sample
+# may change the pattern down the line, or for the final version SO BE AWARE
 def timeAlignCheck(scnt, v):
     if v: print("Performing verification via time alignment in samples...")
     rData = []
     
-    #collect data
+    # collect data
     while scnt > 0:
         if ser.in_waiting > 24:
             m = ser.read(24)
             if v: print("Successfully read {b} bytes from in_waiting!".format(b=len(m)))
-            #add the data from the buffer into our run's data
+            # add the data from the buffer into our run's data
             rData += m
             scnt = scnt-1
 
-    #look for the data we wanna see by running the pattern across it
-    step = 0 #used to keep track of alignment, starts from zero
-    found = False #as long as we haven't found it keep trying
+    # look for the data we wanna see by running the pattern across it
+    step = 0 # used to keep track of alignment, starts from zero
+    found = False # as long as we haven't found it keep trying
     
-    #variables to keep track of where we're looking
-    fs = 0 #first start
-    fe = fs+4 #first end
-    se = 12 #second end
-    ss = se-4 #second start
+    # variables to keep track of where we're looking
+    fs = 0 # first start
+    fe = fs+4 # first end
+    se = 12 # second end
+    ss = se-4 # second start
     
-    #make sure to check for step of length equal to sample size
+    # make sure to check for step of length equal to sample size
     while (found == False) and (step < 24):
         if (rData[fs:fe] == rData[ss:se] and rData[fs:fe]):
             print("Alignment found! Shifting start by {n} bytes...".format(n=step))
@@ -98,7 +102,7 @@ def timeAlignCheck(scnt, v):
                 print("Timestamp 1: {t1}".format(t1=rData[fs:fe]))
                 print("Timestamp 2: {t2}".format(t2=rData[ss:se]))
             
-            #snatch the example raw and env values
+            # snatch the example raw and env values
             rawbytes = rData[fe:fe+2] 
             envbytes = rData[fe+2:fe+4]
             rawact = fixVals2(rawbytes)
@@ -109,13 +113,13 @@ def timeAlignCheck(scnt, v):
                 print("Raw bytes: {rb}\t Raw actual: {ra}".format(rb=rawbytes, ra=rawact))
                 print("Env bytes: {eb}\t Env actual: {ea}".format(eb=envbytes, ea=envact))
             #print("Raw: {r}".format(r=
-            found = True #set found to true to get out of the loop
+            found = True # set found to true to get out of the loop
             
-            #return the alignment if we find it
+            # return the alignment if we find it
             return step
         
         else:
-            #if the values don't match the expected pattern, keep going
+            # if the values don't match the expected pattern, keep going
             if v: 
                 print("Alignment not {n}".format(n=step))
                 print("- Timestamp 1: {t1}".format(t1=rData[fs:fe]))
@@ -126,7 +130,7 @@ def timeAlignCheck(scnt, v):
             ss += 1
             se += 1
             
-    #print an error if we didn't find it
+    # print an error if we didn't find it
     if step > 24:
         print("Test Failed, Expected pattern not found :( :(")
         #return the step so we can use it to measure alignment
@@ -138,51 +142,51 @@ def fastRead(packsize, lock):
         #print("serial in waiting {n}".format(n=ser.in_waiting))
         if ser.in_waiting > 12:
             #print("recived enough to pass!")
-            #lock.acquire() #make sure that decode isn't blocking the serial record so that we don't goof stuff up
+            #lock.acquire() # make sure that decode isn't blocking the serial record so that we don't goof stuff up
             global serial_record
             serial_record+=ser.read(ser.in_waiting)
             #print("Length of serial record according to fastRead: {l}".format(l=len(serial_record)))
-            #delay for a lil bit
-            ser.reset_input_buffer() #50% sure this command doesn't work and we need to do like ser.buffer = "" or some such
-            #lock.release() #give up control of the lock
-        time.sleep(0.01) #wait for about 10ms or so to give the buffer time to fill up a bit more then add it to our record
+            # delay for a lil bit
+            ser.reset_input_buffer() # 50% sure this command doesn't work and we need to do like ser.buffer = "" or some such
+            #lock.release() # give up control of the lock
+        time.sleep(0.01) # wait for about 10ms or so to give the buffer time to fill up a bit more then add it to our record
 
-#used to decode data and error correct in tandem with fastRead and the serial_record system
+# used to decode data and error correct in tandem with fastRead and the serial_record system
 def fastDecode(alignment, packsize, grabs, lock):
     tbr = []
     global read_point
     global serial_record
     end_point = 0
-    #print("running fastDecode: serial_record length according to fastDecode: {l}".format(l=len(serial_record)))
-    #only start decoding if there is 10 samples at least, this will help with checking error correction
-    #additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
-    #if we want we can adjust this later
+    # print("running fastDecode: serial_record length according to fastDecode: {l}".format(l=len(serial_record)))
+    # only start decoding if there is 10 samples at least, this will help with checking error correction
+    # additionally 10 packets should be sent in ~ .00978 seconds which is still 1/3 of the time it takes minimum between frames;
+    # if we want we can adjust this later
     '''redoing this; Instead of directly referencing serial record every time, thus locking it, copy what we want from the serial record into a window to decode'''
     if (len(serial_record) - read_point) > packsize * grabs:
         print("decoding...")
-        lock.acquire() #make sure we have access to serial_record
+        lock.acquire() # make sure we have access to serial_record
         end_point = read_point + packsize * (grabs - 1)
         print("Grabbing from serial record with: packsize = {ps}; read_point = {rp}; end_point = {ep}".format(ps=packsize, rp=read_point, ep=end_point))
         decode_window = serial_record[read_point:end_point]
-        print("decode_window: {d}".format(d=decode_window)) #decode window is empty for some reason
-        print("serial_record: {csr}".format(csr=serial_record))
+        #print("decode_window: {d}".format(d=decode_window)) # decode window is empty for some reason
+        #print("serial_record: {csr}".format(csr=serial_record))
         lock.release()
         window_size = len(decode_window)
         print("window size: {s}".format(s=window_size))
 
-        #read from the beginning of the window to 1 packsize before the end
+        # read from the beginning of the window to 1 packsize before the end
         for i in range(0, (window_size - packsize), packsize):
             #todecode = serial_record[read_point:end_point]
             #for i in range(read_point, (len(todecode) - packsize), packsize): 
             e = i + packsize
-            #slice up our sample into the values we want
+            # slice up our sample into the values we want
             sample = decode_window[i:e]
-            #maybe redo these to be sample size independent when you get the chance
-            #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
+            # maybe redo these to be sample size independent when you get the chance
+            # DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
             timebytes = sample[0:4]
             rawbytes = sample[4:6] 
             envbytes = sample[6:8]
-            #do the math and get our data
+            # do the math and get our data
             timeact = fixVals4(timebytes)
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
@@ -191,67 +195,73 @@ def fastDecode(alignment, packsize, grabs, lock):
 
             '''alignment correction code'''
             '''make sure that this either locks or otherwise doesn't mess up fastRead'''
-            #the reason why we use this code instead of timeALignment check is because that always starts at zero in the buffer
-            #we need a dynamic system which remembers where it is in the serial_record, as that is a complete set of data
+            # the reason why we use this code instead of timeALignment check is because that always starts at zero in the buffer
+            # we need a dynamic system which remembers where it is in the serial_record, as that is a complete set of data
             
-            #if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
-            #figure out how to simplify or statement
-            if((rawact > 4096 or rawact < 0) or (envactct > 4096 or envact < 0)):
+            # if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
+            # figure out how to simplify or statement
+            if((rawact > 4096 or rawact < 0) or (envact > 4096 or envact < 0)):
                 print("Misalignment detected, performing alignment correction")
-                with lock: #this makes sure we're actually 
-                    step = read_point #to keep track of how long we've been checking alignment
-                    realigned = False #to keep track of if we've actually realigned things yet
+                with lock: # this makes sure we won't mess up the shared data
+                    step = read_point # to keep track of how long we've been checking alignment
+                    realigned = False # to keep track of if we've actually realigned things yet
 
-                    #make sure the readpoint isn't broken
+                    # make sure the readpoint isn't broken
                     if (read_point < 0) or (read_point > (len(serial_record) - packsize - 1)):
                         read_point = (len(serial_record) - packsize - 1)
-                        time.sleep(0.05) #wait a lil bit for the serial_record to fill up more
-                    #variables to keep track of where we're looking
-                    fs = read_point #first start
-                    fe = fs+4 #first end
-                    se = read_point+12 #second end
-                    ss = se-4 #second start
+                        time.sleep(0.05) # wait a lil bit for the serial_record to fill up more
                     
-                    #similar checking code from timeAlignmentCheck
+                    # similar checking code from timeAlignmentCheck
                     while (realigned == False) and (step < (read_point + 24)):
+                        # variables to keep track of where we're looking
+                        fs = step       # first start
+                        fe = fs+4       # first end
+                        se = step+12    # second end
+                        ss = se-4       # second start
                         if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
-                            #if we found the alignment update it
-                            read_point += step
-                            #do stuff here to re-decode data we would've missed or interpreted as gibberish
-                            #decodeReverse([fs,fe,se,ss])
-                            #makee sure we store the right values of things
+                            print("Alignment found! Shifting readpoint by {s}".format(s=step-read_point))
+                            # update the sample window
+                            sample = serial_record[fs:se]
+                            # if we found the alignment update it
+                            read_point = step
+                            # do stuff here to re-decode data we would've missed or interpreted as gibberish
+                            # decodeReverse([fs,fe,se,ss])
+                            # makee sure we store the right values of things
                             timebytes = sample[0:4]
                             rawbytes = sample[4:6] 
                             envbytes = sample[6:8]
-                            #do the math and get our data
+                            # do the math and get our data
                             timeact = fixVals4(timebytes)
                             rawact = fixVals2(rawbytes)
                             envact = fixVals2(envbytes)
+                            print("example sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
                             realigned == True
+                            break # since the while loop doesn't seem to want to exit normally?
                         else:
-                            #since we didn't find the alignment keep looking
+                            print("Alignment not {s}".format(s=step))
+                            # since we didn't find the alignment keep looking
                             step += 1
                             fs += 1
                             fe += 1
                             ss += 1
                             se += 1
                         
-            #add our sample to what we want to return
-            #MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
+            # add our sample to what we want to return
+            # MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
             tbr.append([timeact, rawact, envact])
-            #increment readpoint by packsize so we remember where we are in serial_record
-            print("updating read_point")
-            read_point += window_size
-        #only return the values when they're good
+        # increment readpoint by packsize so we remember where we are in serial_record
+        print("updating read_point")
+        read_point += window_size
+        # only return the values when they're good
         return tbr
-    #if there's not enough data in serial_record for whatever reason
+    # if there's not enough data in serial_record for whatever reason
     else:
         print("Not enough data in the serial_record yet for that amount of samples :( :(")
         print("Current serial_record size: %r vs %g(requested data size)".format(r=len(serial_record),g=(packsize*grabs)))
-        #don't return anything
+        # don't return anything
 
-#might not be necessary
-#function to read over serail_record backwards to make sure we're not missing data points in case of a skip
+# might not be necessary
+# function to read over serail_record backwards to make sure we're not missing data points in case of a skip
 def decodeReverse(window):
     print("Oops! Function still under construction")
 '''
@@ -299,25 +309,25 @@ def grabDecode(todecode, alignment, packsize):
     #return our values
     return tbr
 '''            
-#used for 2 byte values
+# used for 2 byte values
 def fixVals2(bvals):
     return (bvals[0]<<8|bvals[1])
-#used for 4 byte values
+# used for 4 byte values
 def fixVals4(bvals):
     return (bvals[0]<<24|bvals[1]<<16|bvals[2]<<8|bvals[3])
 
 
-#graph stuff
+# graph stuff
 style.use('bmh')
 fig, ax1 = plt.subplots()
-ax1.set_xlim(0, 5120, auto=False) #This should limit the size of our graph to be ~5 seconds of samples, or maybe 2.5 secounds since of the time bug
+ax1.set_xlim(0, 5120, auto=False) # This should limit the size of our graph to be ~5 seconds of samples, or maybe 2.5 secounds since of the time bug
 #ax1.set_xticks(ticks, labels=None, *, minor=False, **kwargs) #used for determining spacing of the labels on the x axis
 
-#data storage for our graphs
-#might merge this with the buffer eventually, but for now we're keeping it seprate
-xs = [] #time
-ys = [] #raw values
-ys2 = []
+# data storage for our graphs
+# might merge this with the buffer eventually, but for now we're keeping it seprate
+xs = []  # time
+ys = []  # raw values
+ys2 = [] # env values
 
 #sample = how many samples we want to grab
 #alignment = how we need to adjust the incoming bytes
@@ -326,16 +336,16 @@ def graphTest(i, samples, alignment, samplesize):
     #bytedata = fastDecode(samples, samplesize)
     #print("data grabbed: {d}".format(d=bytedata))
     '''please verify how many of these steps I should actually do, I think this is quickest but needs testing'''
-    #convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
-    #we instead get an output of an array with three lists containing all the data from that pass
-    #this makes the code to actually put the data to our graph simpler
+    # convert to numpy array and trans pose it so that instread of a list containing our samples w/each data point in it
+    # we instead get an output of an array with three lists containing all the data from that pass
+    # this makes the code to actually put the data to our graph simpler
     #data = np.transpose(np.array(grabDecode(bytedata, alignment, samplesize)))
-    #then convert it back to a list and add it to the lists
+    # then convert it back to a list and add it to the lists
     #xs.append(np.ndarray.tolist(data[0])) #our time data
     #ys.append(np.ndarray.tolist(data[1])) #our raw data
-    #add a env
+    # add a env
     '''a bit sloppy but should work for testing purposes'''
-    #alignment, packsize, grabs, lock
+    # alignment, packsize, grabs, lock
     data = fastDecode(alignment, 12, samples, lock) # hard coded the 12 here because of an error where it was zero for some reason
     if(data):
         lastadd = len(data)
@@ -346,33 +356,33 @@ def graphTest(i, samples, alignment, samplesize):
             ys.append(sample[1])
             ys2.append(sample[2])
             
-        #limit the arrays size
+        # limit the arrays size
         xs = xs[-5120:]
         ys = ys[-5120:]
         ys2 = ys2[-5120:]
 
-        #draw the graph
+        # draw the graph
         ax1.clear()
         ax1.plot(xs, ys, label='Raw')
         ax1.plot(xs, ys2, label='Env')
 
-        #formatting stuff
+        # formatting stuff
         plt.title("Live graphing from ESP32")
         ax1.set_xlabel('Time')
         ax1.set_ylabel('Raw and Raw')
-        ax1.legend() #to help differentiate the values being graphed
+        ax1.legend() # to help differentiate the values being graphed
         ax1.grid(True)
         
-        #space out the labels on the x data
-        #get the positions we need for spacing ticks evently
+        # space out the labels on the x data
+        # get the positions we need for spacing ticks evently
         
         tickvals, labels = niceTicks(xs)
         #tickvals = nticks[0]
         #labels = nticks[1]
 
         ax1.set(yticklabels=[])
-        ax1.set_xticks(tickvals) #where to place tick marks
-        ax1.set_xticklabels(labels) #labels
+        ax1.set_xticks(tickvals) # where to place tick marks
+        ax1.set_xticklabels(labels) # labels
         #print("graph Complete!")
         
         '''
@@ -384,26 +394,26 @@ def graphTest(i, samples, alignment, samplesize):
             ax1.set(yticklabels=[])
             ax1.set(yticklabels=[])
             #get the positions we need for spacing ticks evently
-            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
-            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]]) #where to place tick marks
-            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) #labels
+            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]])                     # where to place tick marks
+            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
+            ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]])                     # where to place tick marks
+            ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
         '''
-        #test to make sure that there aren't non-distinct x values which will mess up the graph
+        # test to make sure that there aren't non-distinct x values which will mess up the graph
         if len(xs) != len(set(xs)):
             print("Uh oh! there are duplicates!")
             print(ser.in_waiting)
             #print(xs)
-            #reset the buffer; this should help make sure it is the same amount of base time before we get the bug
-            ser.read_all() #by reading everything we can clear the buffer; Flush nor the others seemed to work
+            # reset the buffer; this should help make sure it is the same amount of base time before we get the bug
+            ser.read_all() # by reading everything we can clear the buffer; Flush nor the others seemed to work
             
-            #things to try:
+            # things to try:
             # - CHECK ALIGNMENT!!!!!!
-            #try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
-            #if the alignment has changed; Update it so we won't get weird errors
+            # try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
+            # if the alignment has changed; Update it so we won't get weird errors
             alignment = timeAlignCheck(samplesize, False)
             '''changing the time array crashes the graphing'''
-            #remove the last [samples] entries from the array) - need to test what value to remove works best
+            # remove the last [samples] entries from the array) - need to test what value to remove works best
             nXsLen = len(xs) - lastadd - 1 #(2*(samples*samplesize))
             print("Removing: {n} entries".format(n=lastadd))
             xs = xs[0:nXsLen]
@@ -411,39 +421,61 @@ def graphTest(i, samples, alignment, samplesize):
             ys2 = ys2[0:nXsLen]
 
             '''try clearing the figure'''
-            #DON'T DO THIS! DOESN'T WORK!
-            #NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
+            # DON'T DO THIS! DOESN'T WORK!
+            # NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
             #ax1.cla()
         
 
 def niceTicks(data):
-    datalen = len(data) #get the length of our data for easy math
+    datalen = len(data) # get the length of our data for easy math
     tickvals = []
     labels = []
     if(datalen > 8):
         ax1.set(yticklabels=[])
-        #get the positions we need for spacing ticks evently
+        # get the positions we need for spacing ticks evently
         tickvals = [data[0], xs[int(datalen/2)], data[-1]] #where to place tick marks
-        #add labels we want to use instead of just the numerical values
+        # add labels we want to use instead of just the numerical values
         for v in tickvals:
-            #divide by 1000000 to convert from microseconds to seconds for ease of reading
-            #since the time is running 2x speed for ??? reasons rn, switched to 500000
+            # divide by 1000000 to convert from microseconds to seconds for ease of reading
+            # since the time is running 2x speed for ??? reasons rn, switched to 500000
             labels.append(str(v/500000))
     return tickvals, labels
+
+'''
+# pepper grapher code variables
+# ---------- Creates and opens graph window ----------
+pg.mkQApp()
+
+# Create remote process with a plot window
+
+proc = mp.QtProcess()
+rpg = proc._import('pyqtgraph')
+plotwin = rpg.plot()
+curve = plotwin.plot(pen='y')
+
+# create an empty list in the remote process
+data = proc.transfer([])
+
+# ---------- Actual graph part ----------
+def add_data_to_graph(formatted_data_list):
+	# maybe aim for a len(formatted_data_list) = 50 or so to start
+	data.extend(formatted_data_list, _callSync='off')
+	curve.setData(y=data, _callSync='off')
+'''
 
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
 #-------------------------
 if __name__ == "__main__":
     print("starting!")
-    ser.open() #open it
+    ser.open() # open it
     pawshake()
     #smartRead()
     #alignCheck(8)
     alignment = timeAlignCheck(8, True)
     #etime = time.time() + 30
     
-    #attempt at multiprocessing
+    # attempt at multiprocessing
     queue = mp.Queue()
     stopped = threading.Event()
     
@@ -461,7 +493,7 @@ if __name__ == "__main__":
     
 
     '''
-    #non-live graphing
+    # non-live graphing
     graphTest(2048, alignment, 12)
     plt.show()
 
@@ -471,7 +503,7 @@ if __name__ == "__main__":
     end = time.time()
     total = end - start
     data = grabDecode(bytedata, alignment, 12)
-    expected = (data[-1][0] - data[0][0]) / (10**6) #need to do a microsecond to second conversion
+    expected = (data[-1][0] - data[0][0]) / (10**6) # need to do a microsecond to second conversion
     print("Here's the data: {c} samples grabbed in {s} seconds".format(c=len(data), s=total))
     print("python time vs sample time: ")
     print("p: {t1}".format(t1=total))
@@ -483,10 +515,10 @@ if __name__ == "__main__":
     if fr.is_alive():
         print("Closed fastRead thread!")
 
-#old code that I will delete later
+# old code that I will delete later
 '''
-#read 1 input line from the serial
-#helps make sure everything is in sync
+# read 1 input line from the serial
+# helps make sure everything is in sync
 z = b''
 def read():
     global z
