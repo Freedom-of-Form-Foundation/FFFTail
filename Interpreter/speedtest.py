@@ -175,7 +175,9 @@ def fastDecode(alignment, packsize, grabs, lock):
         print("window size: {s}".format(s=window_size))
 
         # read from the beginning of the window to 1 packsize before the end
-        for i in range(0, (window_size - packsize), packsize):
+        step = 0
+        for i in range(0, window_size, packsize):
+            i += step
             #todecode = serial_record[read_point:end_point]
             #for i in range(read_point, (len(todecode) - packsize), packsize): 
             e = i + packsize
@@ -190,9 +192,7 @@ def fastDecode(alignment, packsize, grabs, lock):
             timeact = fixVals4(timebytes)
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)
-            if i == 0:
-                print("example from sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
-
+            if i == 0: print("example from sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
             '''alignment correction code'''
             '''make sure that this either locks or otherwise doesn't mess up fastRead'''
             # the reason why we use this code instead of timeALignment check is because that always starts at zero in the buffer
@@ -201,50 +201,52 @@ def fastDecode(alignment, packsize, grabs, lock):
             # if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             # figure out how to simplify or statement
             if((rawact > 4096 or rawact < 0) or (envact > 4096 or envact < 0)):
-                print("Misalignment detected, performing alignment correction")
+                print("Misalignment detected at {p}th place in window, performing alignment correction".format(p=i))
+                print("Bogus sample sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
+                step = i # to keep track of how long we've been checking alignment
+                realigned = False # to keep track of if we've actually realigned things yet
                 with lock: # this makes sure we won't mess up the shared data
-                    step = read_point # to keep track of how long we've been checking alignment
-                    realigned = False # to keep track of if we've actually realigned things yet
-
                     # make sure the readpoint isn't broken
                     if (read_point < 0) or (read_point > (len(serial_record) - packsize - 1)):
+                        print("Whoops, bogus read_point {r}... attempting fix".format(r=read_point))
                         read_point = (len(serial_record) - packsize - 1)
                         time.sleep(0.05) # wait a lil bit for the serial_record to fill up more
                     
-                    # similar checking code from timeAlignmentCheck
-                    while (realigned == False) and (step < (read_point + 24)):
-                        # variables to keep track of where we're looking
-                        fs = step       # first start
-                        fe = fs+4       # first end
-                        se = step+12    # second end
-                        ss = se-4       # second start
-                        if (serial_record[fs:fe] == serial_record[ss:se] and serial_record[fs:fe]):
-                            print("Alignment found! Shifting readpoint by {s}".format(s=step-read_point))
-                            # update the sample window
-                            sample = serial_record[fs:se]
-                            # if we found the alignment update it
-                            read_point = step
-                            # do stuff here to re-decode data we would've missed or interpreted as gibberish
-                            # decodeReverse([fs,fe,se,ss])
-                            # makee sure we store the right values of things
-                            timebytes = sample[0:4]
-                            rawbytes = sample[4:6] 
-                            envbytes = sample[6:8]
-                            # do the math and get our data
-                            timeact = fixVals4(timebytes)
-                            rawact = fixVals2(rawbytes)
-                            envact = fixVals2(envbytes)
-                            print("example sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
-                            realigned == True
-                            break # since the while loop doesn't seem to want to exit normally?
-                        else:
-                            print("Alignment not {s}".format(s=step))
-                            # since we didn't find the alignment keep looking
-                            step += 1
-                            fs += 1
-                            fe += 1
-                            ss += 1
-                            se += 1
+                # similar checking code from timeAlignmentCheck
+                while (realigned == False) and (step < (i + 24)):
+                    # variables to keep track of where we're looking
+                    fs = step       # first start
+                    fe = fs+4       # first end
+                    se = step+12    # second end
+                    ss = se-4       # second start
+                    if (decode_window[fs:fe] == decode_window[ss:se] and decode_window[fs:fe]):
+                        print("Alignment found! Shifting readpoint by {s}".format(s=step-i))
+                        realigned = True
+                        # update the decode window
+                        sample = decode_window[fs:se]
+                        #realign the iterator we're using to jump through the window with
+                        i += step
+                        # if we found the alignment update it
+                        #read_point += step
+                        # do stuff here to re-decode data we would've missed or interpreted as gibberish
+                        # decodeReverse([fs,fe,se,ss])
+                        # makee sure we store the right values of things
+                        timebytes = sample[0:4]
+                        rawbytes = sample[4:6] 
+                        envbytes = sample[6:8]
+                        # do the math and get our data
+                        timeact = fixVals4(timebytes)
+                        rawact = fixVals2(rawbytes)
+                        envact = fixVals2(envbytes)
+                        print("realigned sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
+                    else:
+                        print("Alignment not {s}".format(s=step))
+                        # since we didn't find the alignment keep looking
+                        step += 1
+                        #fs += 1
+                        #fe += 1
+                        #ss += 1
+                        #se += 1
                         
             # add our sample to what we want to return
             # MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
@@ -398,11 +400,11 @@ def graphTest(i, samples, alignment, samplesize):
             ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
             ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]])                     # where to place tick marks
             ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
-        '''
+        
         # test to make sure that there aren't non-distinct x values which will mess up the graph
         if len(xs) != len(set(xs)):
             print("Uh oh! there are duplicates!")
-            print(ser.in_waiting)
+            print("ser.in_waiting: {s}".format(s=ser.in_waiting))
             #print(xs)
             # reset the buffer; this should help make sure it is the same amount of base time before we get the bug
             ser.read_all() # by reading everything we can clear the buffer; Flush nor the others seemed to work
@@ -412,7 +414,7 @@ def graphTest(i, samples, alignment, samplesize):
             # try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
             # if the alignment has changed; Update it so we won't get weird errors
             alignment = timeAlignCheck(samplesize, False)
-            '''changing the time array crashes the graphing'''
+            # changing the time array crashes the graphing
             # remove the last [samples] entries from the array) - need to test what value to remove works best
             nXsLen = len(xs) - lastadd - 1 #(2*(samples*samplesize))
             print("Removing: {n} entries".format(n=lastadd))
@@ -420,11 +422,11 @@ def graphTest(i, samples, alignment, samplesize):
             ys = ys[0:nXsLen]
             ys2 = ys2[0:nXsLen]
 
-            '''try clearing the figure'''
+            # try clearing the figure
             # DON'T DO THIS! DOESN'T WORK!
             # NEED TO either create system to remove duplicate x values from the end without changing the lenth of the arrays maybe?
             #ax1.cla()
-        
+        '''
 
 def niceTicks(data):
     datalen = len(data) # get the length of our data for easy math
