@@ -5,6 +5,8 @@
 # important stuff
 import sys
 import time
+import random
+import math
 # serial read
 import serial
 import io
@@ -22,7 +24,6 @@ import threading
 # pepper grapgher imports
 # import pyqtgraph as pg
 # import pyqtgraph.multiprocess as mp
-# import time
 
 #serial stuff
 ser = serial.Serial(baudrate=230400, timeout=None) # serial class
@@ -191,7 +192,7 @@ def fastDecode(alignment, packsize, grabs, lock):
             # do the math and get our data
             timeact = fixVals4(timebytes)
             rawact = fixVals2(rawbytes)
-            envact = fixVals2(envbytes)
+            envact = fixVals2(envbytes) # this line breaks sporatically, unsure why; Gives an index out of range error
             if i == 0: print("example from sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
             '''alignment correction code'''
             '''make sure that this either locks or otherwise doesn't mess up fastRead'''
@@ -239,14 +240,12 @@ def fastDecode(alignment, packsize, grabs, lock):
                         rawact = fixVals2(rawbytes)
                         envact = fixVals2(envbytes)
                         print("realigned sample: [{t}, {r}, {e}]".format(t=timeact, r=rawact, e=envact))
+                        # append the value we want to add
+                        tbr.append([timeact, rawact, envact])
                     else:
                         print("Alignment not {s}".format(s=step))
                         # since we didn't find the alignment keep looking
                         step += 1
-                        #fs += 1
-                        #fe += 1
-                        #ss += 1
-                        #se += 1
                         
             # add our sample to what we want to return
             # MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
@@ -443,27 +442,6 @@ def niceTicks(data):
             labels.append(str(v/500000))
     return tickvals, labels
 
-'''
-# pepper grapher code variables
-# ---------- Creates and opens graph window ----------
-pg.mkQApp()
-
-# Create remote process with a plot window
-
-proc = mp.QtProcess()
-rpg = proc._import('pyqtgraph')
-plotwin = rpg.plot()
-curve = plotwin.plot(pen='y')
-
-# create an empty list in the remote process
-data = proc.transfer([])
-
-# ---------- Actual graph part ----------
-def add_data_to_graph(formatted_data_list):
-	# maybe aim for a len(formatted_data_list) = 50 or so to start
-	data.extend(formatted_data_list, _callSync='off')
-	curve.setData(y=data, _callSync='off')
-'''
 
 #-------------------------        
 # ACTUALLY RUN EVERYTHING
@@ -489,7 +467,9 @@ if __name__ == "__main__":
     print("Creating Graoh...")
     #fg = threading.Thread(target=fastGraph, args=(alignment, ))
     test_graph = animation.FuncAnimation(fig, graphTest, fargs=(102, alignment, 12), interval = 30)
+    #plt.ion() # this and the pause seem to prevent the graph from closing but nothing displays and the program seems to stop
     plt.show()
+    #plt.pause(0.001) # see comment on plt.ion()
     
     fr.join()
     
