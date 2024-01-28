@@ -1,4 +1,5 @@
-# T&R 2023 (@Mecknavorz)
+# @title
+# T&R 2024 (@Mecknavorz, @Pepper)
 # made for the FFF enhanced tail project.
 # used for testing varius aspects around how fast we can send data over serial
 
@@ -161,12 +162,11 @@ def fastDecode(alignment, packsize, grabs, lock):
     global read_point
     global serial_record
     tbr = []
-    #end_point = 0
     # print("running fastDecode: serial_record length according to fastDecode: {l}".format(l=len(serial_record)))
     '''
     only start decoding if there is 10 samples at least, this will help with checking error correction
     additionally 10 packets should be sent in ~ .00978 seconds which is a very small delay for graphing
-    
+
     redoing this; Instead of directly referencing serial record every time, and thus locking it,
     we copy what we want from the serial record into a window to decode
     '''
@@ -174,12 +174,12 @@ def fastDecode(alignment, packsize, grabs, lock):
         print("decoding...")
 
         lock.acquire()  # make sure we have access to serial_record
-
+        
         if grabs == 1:
             end_point = packsize - 1
         else:
-            end_point = read_point + packsize * (grabs - 1)
-        
+            end_point = read_point + packsize * grabs
+            
         print("Grabbing from serial record with:",
               f"packsize = {packsize}; read_point = {read_point}; end_point = {end_point}")
 
@@ -196,14 +196,14 @@ def fastDecode(alignment, packsize, grabs, lock):
         # read from the beginning of the window to 1 packsize before the end
         step = 0
 
-        for i in range(0, window_size, packsize):
-            i += step
+        for windowstart in range(0, window_size - packsize, packsize):
+            windowstart += step
             # todecode = serial_record[read_point:end_point]
             # for i in range(read_point, (len(todecode) - packsize), packsize):
-            e = i + packsize
+            windowend = windowstart + packsize
 
             # slice up our sample into the values we want
-            sample = decode_window[i:e]
+            sample = decode_window[windowstart:windowend]
 
             # maybe redo these to be sample size independent when you get the chance
             # DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
@@ -211,12 +211,14 @@ def fastDecode(alignment, packsize, grabs, lock):
             rawbytes = sample[4:6]
             envbytes = sample[6:8]
 
+            # print(sample, timebytes, rawbytes, envbytes, windowstart, windowend, window_size, step)
+
             # do the math and get our data
             timeact = fixVals4(timebytes)
             rawact = fixVals2(rawbytes)
             envact = fixVals2(envbytes)  # this line breaks sporadically, unsure why; Gives an index out of range error
 
-            if i == 0:
+            if windowstart == 0:
                 print(f"example from sample: [{timeact}, {rawact}, {envact}]")
 
             '''
@@ -228,12 +230,13 @@ def fastDecode(alignment, packsize, grabs, lock):
             if our raw and env values are wayyy out of the expected range then it's likely to be a misalignment
             '''
 
+            realigned = False  # to keep track of if we've actually realigned things yet
+
             if not (0 <= rawact <= 4096) or not (0 <= envact <= 4096):
-                print(f"Misalignment detected at {i}th place in window, performing alignment correction")
+                print(f"Misalignment detected at {windowstart}th place in window, performing alignment correction")
                 print(f"Bogus sample sample: [{timeact}, {rawact}, {envact}]")
 
-                step = i  # to keep track of how long we've been checking alignment
-                realigned = False  # to keep track of if we've actually realigned things yet
+                step = windowstart  # to keep track of how long we've been checking alignment
 
                 with lock:  # this makes sure we won't mess up the shared data
 
@@ -244,7 +247,7 @@ def fastDecode(alignment, packsize, grabs, lock):
                         time.sleep(0.05)  # wait a lil bit for the serial_record to fill up more
 
                 # similar checking code from timeAlignmentCheck
-                while not realigned and (step < (i + 24)):
+                while not realigned and (step < (windowstart + 24)):
                     # variables to keep track of where we're looking
                     fs = step  # first start
                     fe = fs + 4  # first end
@@ -252,12 +255,12 @@ def fastDecode(alignment, packsize, grabs, lock):
                     ss = se - 4  # second start
 
                     if decode_window[fs:fe] == decode_window[ss:se] and decode_window[fs:fe]:
-                        print("Alignment found! Shifting read point by {s}".format(s=step - i))
+                        print(f"Alignment found! Shifting read point by {step}")
                         realigned = True
                         # update the decode window
                         sample = decode_window[fs:se]
                         # realign the iterator we're using to jump through the window with
-                        i += step
+                        windowstart += step
                         # if we found the alignment update it
                         # read_point += step
                         # do stuff here to re-decode data we would've missed or interpreted as gibberish
@@ -277,7 +280,10 @@ def fastDecode(alignment, packsize, grabs, lock):
                         print(f"Alignment not {step}")
                         # since we didn't find the alignment keep looking
                         step += 1
+                        step = step % 25
 
+        if not realigned:
+            print("data good, appending!")
             # add our sample to what we want to return
             # MIGHT NEED TO MAKE SURE THIS DOESN'T ACCIDENTALLY APPEND JUNK
             tbr.append([timeact, rawact, envact])
@@ -327,7 +333,7 @@ def grabDecode(todecode, alignment, packsize):
     tbr = []
     #since we want to iterate from the start of our alignment to the end our our decode buffer where i should be multiples of the size of our packets
     'keep getting an error about range arg 3 being 0 here'
-    for i in range(alignment, (len(todecode) - packsize), packsize): 
+    for i in range(alignment, (len(todecode) - packsize), packsize):
         #s = i+alignment #get the start of a data packet
         e = i + packsize
         #slice up our sample into the values we want
@@ -335,7 +341,7 @@ def grabDecode(todecode, alignment, packsize):
         #maybe redo these to be sample size independent when you get the chance
         #DOUBLE CHECK THIS!!!!!!!!!!!! could be slicing wrong if we get the wrong values
         timebytes = sample[0:4]
-        rawbytes = sample[4:6] 
+        rawbytes = sample[4:6]
         envbytes = sample[6:8]
         #do the math and get our data
         timeact = fixVals4(timebytes)
@@ -345,7 +351,7 @@ def grabDecode(todecode, alignment, packsize):
         if(rawact)
         #add our sample to what we want to return
         tbr.append([timeact, rawact, envact])
-        
+
     #return our values
     return tbr
 '''
@@ -383,6 +389,8 @@ ys2 = []  # env values
 
 
 def pepper_live_graph(data=None, start=False):
+    print(data)
+
     if data is None:
         data = [[], [], []]
 
@@ -456,7 +464,7 @@ def pepper_live_graph(data=None, start=False):
 
         data_block = [[], [], []]
 
-        pepper_live_graph(data=fastDecode(alignment, 12, 100, lock), start=False)
+        pepper_live_graph(data=fastDecode(alignment, 12, block_limit, lock), start=False)
 
 
 def graphTest(i, samples, alignment, samplesize):
@@ -526,7 +534,7 @@ def graphTest(i, samples, alignment, samplesize):
             ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
             ax1.set_xticks([xs[0], xs[int(len(xs)/2)], xs[-1]])                     # where to place tick marks
             ax1.set_xticklabels([str(xs[0]), str(xs[int(len(xs)/2)]), str(xs[-1])]) # labels
-        
+
         # test to make sure that there aren't non-distinct x values which will mess up the graph
         if len(xs) != len(set(xs)):
             print("Uh oh! there are duplicates!")
@@ -534,7 +542,7 @@ def graphTest(i, samples, alignment, samplesize):
             #print(xs)
             # reset the buffer; this should help make sure it is the same amount of base time before we get the bug
             ser.read_all() # by reading everything we can clear the buffer; Flush nor the others seemed to work
-            
+
             # things to try:
             # - CHECK ALIGNMENT!!!!!!
             # try parsing some samples at random to see if they're being red in correctly; if not then the Raw or env values won't be between 0-4095
@@ -593,9 +601,9 @@ if __name__ == "__main__":
     fr.start()
     print("Thread Started")
     print("Creating Graph...")
-    
+
     # pepper graphing code
-    pepper_live_graph(data=fastDecode(alignment, 12, 1, lock), start=True)
+    pepper_live_graph(data=fastDecode(alignment, 12, 2, lock), start=True)
     pepper_live_graph(data=fastDecode(alignment, 12, 100, lock), start=False)
 
     # old attempt at threading matplotlib graphing
@@ -645,7 +653,7 @@ def read():
     #- read_until(b'\n') = ~4.6
     #- readline = ~4.5
     #From the results of these tests we can conclude that the best way forward is going to be read(n) and making sure we are sending the correct # of bytes at once
-    
+
     #z = y[:-1].split(",") #[time, raw, env]
     while rc < 3:
         y = ser.read(12)
@@ -666,7 +674,7 @@ def smartRead():
     #[0-3] = time of sample
     #[4-5] = raw value
     #[6-7] = env value
-    
+
     #essentially check to make sure we have completed messages in there
     #need to implement some way of making sure we're always looking for the right amount of bytes
     if(ser.in_waiting % 12 == 0):
@@ -723,7 +731,7 @@ def roughBuff():
         if (z[0] != '') and (z[0] != '') and (z[0] != ''):
             #time = timecheck(int(data[0])) #convert out time to be proper for the graph; MIGHT BE REDUNDANT WITH NEW GRAPH?
             #add data to our axis
-            xs.append(z[0]) 
+            xs.append(z[0])
             ys.append(z[1])
             #DO NOT DELETE THIS LINE
             #dump = data[2] #for some reason if you don't have this line it gives and out of bounds error on the previous line
