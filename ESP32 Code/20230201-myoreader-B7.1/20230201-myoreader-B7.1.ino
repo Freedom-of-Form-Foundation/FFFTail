@@ -8,7 +8,7 @@
 #define MYOWARE_ENV 39 //envolope values
 
 uint32_t myMicros = 0; //for keeping track of time
-const int sample_rate = 966; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
+const int sample_rate = 1000000; //488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
 const int wait = 3; //wait time in seconds before the code should start running once synch is established
 bool start = false; //used to help us control when the full code starts vs just listening to make sure the python end is up and running
 
