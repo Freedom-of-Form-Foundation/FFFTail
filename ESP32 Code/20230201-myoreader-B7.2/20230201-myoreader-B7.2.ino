@@ -68,7 +68,6 @@ void byteSample(uint32_t t, uint16_t r, uint16_t e){
   sample[11] = sample[3];
 }
 
-
 // the most recent values taken
 // since these values should only be 0-4095(?) we don't needs more than two byte each
 uint32_t nraw = 0;
@@ -77,25 +76,22 @@ void loop() {
   //Serial.println("Hewwo! rawr!"); // coment out after testing
   static uint32_t last_check; // to keep track of the last time we printed data
   static uint32_t start_time; // used to zero times from the esp32's clock so that we start transmitting from zero
-  static uint32_t corrected_time; // the value we'll crunch though our byteSample function
-  static uint32_t antidrift_count; // to counteract the micros increasing by an extra 1 microsecond every call
-  
-  if(micros() - last_check >= sample_rate){
+  uint32_t corrected_time; // the value we'll crunch though our byteSample function
+
+  myMicros = micros();
+  if(myMicros - last_check >= sample_rate){
     if(Serial.availableForWrite() > 12) { // since we're writing 12 bits to cereal (4b+2b+2b+4b) we wanna make sure we have enough space to do so; helps with sync
       if(!sent_first){
         // this makes sure we set the start_time to when we start transmitting data
         // this way we can make sure that our first data sample is at zero
-        start_time = micros(); // update when we'll wanna print next
+        start_time = myMicros; // update when we'll wanna print next
         last_check = start_time; // this is to make sure we don't execute the nexty sample check too early
         corrected_time = 0;
-        antidrift_count = 0;
         sent_first = true;
       } else {
-        last_check = micros(); // update recorded time
-        antidrift_count++; // increment our counter to make sure we get rid of that extra microsecond
+        last_check = myMicros; // update recorded time
         // this makes it so the time we return is aligned with when we started transmitting and not when the esp32 turned on
-        corrected_time = last_check - start_time - antidrift_count; //since the was always off by an adational extra microsecond
-        //Serial.println("not first. ct: " + String(corrected_time));
+        corrected_time = last_check - start_time;
       }
       // read in the analouge values
       // Raw: 0-4095
@@ -103,10 +99,11 @@ void loop() {
       nraw = analogRead(MYOWARE_RAW);
       nenv = analogRead(MYOWARE_ENV);
       // convert everything to proper bytes for sedning
-      Serial.println("corrected time: " + String(corrected_time));
+      //Serial.println("corrected time: " + String(corrected_time));
       byteSample(corrected_time, nraw, nenv);
       // write to serial
       Serial.write(sample, sizeof(sample));
+      delayMicroseconds(10);
     }
   }
 }
