@@ -8,7 +8,7 @@
 #define MYOWARE_ENV 39 // envolope values
 
 uint32_t myMicros = 0; // for keeping track of time
-const int sample_rate = 1000000; // 488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
+const int sample_rate = 1600; // 488 microseconds gives us a rate of 2048Hz, which is what many sEMG systems use
 const int wait = 3; // wait time in seconds before the code should start running once synch is established
 bool start = false; // used to help us control when the full code starts vs just listening to make sure the python end is up and running
 bool sent_first = false; // used to know if we have already transmitted data or not 
@@ -68,16 +68,18 @@ void byteSample(uint32_t t, uint16_t r, uint16_t e){
   sample[11] = sample[3];
 }
 
-// the most recent values taken
-// since these values should only be 0-4095(?) we don't needs more than two byte each
-uint32_t nraw = 0;
-uint32_t nenv = 0;
 void loop() {
   //Serial.println("Hewwo! rawr!"); // coment out after testing
   static uint32_t last_check; // to keep track of the last time we printed data
   static uint32_t start_time; // used to zero times from the esp32's clock so that we start transmitting from zero
+  
+  // the most recent values taken
+  // since these values should only be 0-4095(?) we don't needs more than two byte each
+  uint16_t nraw = 0;
+  uint16_t nenv = 0;
+  
   uint32_t corrected_time; // the value we'll crunch though our byteSample function
-
+  
   myMicros = micros();
   if(myMicros - last_check >= sample_rate){
     if(Serial.availableForWrite() > 12) { // since we're writing 12 bits to cereal (4b+2b+2b+4b) we wanna make sure we have enough space to do so; helps with sync
@@ -99,11 +101,11 @@ void loop() {
       nraw = analogRead(MYOWARE_RAW);
       nenv = analogRead(MYOWARE_ENV);
       // convert everything to proper bytes for sedning
-      //Serial.println("corrected time: " + String(corrected_time));
+      Serial.println("corrected time: " + String(corrected_time));
       byteSample(corrected_time, nraw, nenv);
       // write to serial
       Serial.write(sample, sizeof(sample));
-      delayMicroseconds(10);
+      //delayMicroseconds(10);
     }
   }
 }
