@@ -130,7 +130,7 @@ void IRAM_ATTR sendSample(){ //void * parameter //old parameters to use with Fre
         last_check = micros(); // update recorded time
         // this makes it so the time we return is aligned with when we started transmitting and not when the esp32 turned on
         //corrected_time = last_check - start_time;
-      time_correction(last_check - start_time);
+        corrected_time = time_correction(last_check - start_time);
       }
       // read in the analouge values
       // Raw: 0-4095
