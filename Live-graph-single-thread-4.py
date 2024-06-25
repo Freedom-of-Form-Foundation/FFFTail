@@ -249,27 +249,6 @@ def fastDecode(samples_to_decode=1, packet_size=12, verbose=False, sample_per_se
     return None
 
 
-def time_correction(timestamp):
-    mod = 0
-    sample_rate = 1000
-
-    if timestamp > sample_rate:
-        mod = timestamp % sample_rate
-        return timestamp - mod + sample_rate
-    else:
-        mod = sample_rate % timestamp
-        return timestamp + mod
-
-
-def time_correction_corrected(timestamp):
-    mod = 0
-    sample_rate = 1000
-
-    mod = timestamp % sample_rate
-
-    return timestamp - mod + sample_rate
-
-
 # -------------------------
 # ACTUALLY RUN EVERYTHING
 # -------------------------
@@ -304,7 +283,6 @@ if __name__ == "__main__":
     bytes_lost = 0
     last_valid_data = [0, 0, 0]
     samples_per_second = 100
-
 
     # ------------- Graph initialization -------------
 
@@ -344,7 +322,6 @@ if __name__ == "__main__":
     env_data = proc.transfer([])  # noqa
 
     # --------------- WARNING: LOOPING BEGINS BEYOND THIS POINT ---------------
-
 
     while len(serial_record) < serial_length_failsafe:
         ready_to_graph = []
